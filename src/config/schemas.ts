@@ -3,9 +3,7 @@
 import { z } from "zod";
 
 export const kafkaSchema = z.object({
-  provider: z
-    .enum(["local", "msk", "confluent"])
-    .describe("Kafka provider type"),
+  provider: z.enum(["local", "msk", "confluent"]).describe("Kafka provider type"),
   clientId: z.string().describe("Kafka client identifier"),
   allowWrites: z
     .boolean()
@@ -18,25 +16,17 @@ export const kafkaSchema = z.object({
     .int()
     .positive()
     .describe("Maximum number of messages to consume per request"),
-  consumeTimeoutMs: z
-    .number()
-    .int()
-    .positive()
-    .describe("Consume timeout in milliseconds"),
+  consumeTimeoutMs: z.number().int().positive().describe("Consume timeout in milliseconds"),
 });
 
 export const mskSchema = z.object({
-  bootstrapBrokers: z
-    .string()
-    .describe("Comma-separated MSK bootstrap broker endpoints"),
+  bootstrapBrokers: z.string().describe("Comma-separated MSK bootstrap broker endpoints"),
   clusterArn: z.string().describe("MSK cluster ARN for IAM authentication"),
   region: z.string().describe("AWS region for MSK cluster"),
 });
 
 export const confluentSchema = z.object({
-  bootstrapServers: z
-    .string()
-    .describe("Confluent Cloud bootstrap server endpoints"),
+  bootstrapServers: z.string().describe("Confluent Cloud bootstrap server endpoints"),
   apiKey: z.string().describe("Confluent Cloud API key"),
   apiSecret: z.string().describe("Confluent Cloud API secret"),
   restEndpoint: z.string().describe("Confluent Cloud REST API endpoint"),
@@ -44,30 +34,19 @@ export const confluentSchema = z.object({
 });
 
 export const localSchema = z.object({
-  bootstrapServers: z
-    .string()
-    .describe("Local Kafka bootstrap server endpoints"),
+  bootstrapServers: z.string().describe("Local Kafka bootstrap server endpoints"),
 });
 
 export const loggingSchema = z.object({
-  level: z
-    .enum(["silent", "debug", "info", "warn", "error"])
-    .describe("Log verbosity level"),
+  level: z.enum(["silent", "debug", "info", "warn", "error"]).describe("Log verbosity level"),
   backend: z.enum(["pino"]).describe("Logging backend to use"),
 });
 
 export const telemetrySchema = z.object({
   enabled: z.boolean().describe("Whether OpenTelemetry tracing is enabled"),
-  serviceName: z
-    .string()
-    .describe("Service name reported in telemetry spans"),
-  mode: z
-    .enum(["console", "otlp", "both"])
-    .describe("Telemetry export mode"),
-  otlpEndpoint: z
-    .string()
-    .url()
-    .describe("OTLP HTTP exporter endpoint"),
+  serviceName: z.string().describe("Service name reported in telemetry spans"),
+  mode: z.enum(["console", "otlp", "both"]).describe("Telemetry export mode"),
+  otlpEndpoint: z.string().url().describe("OTLP HTTP exporter endpoint"),
 });
 
 export const configSchema = z
@@ -87,8 +66,7 @@ export const configSchema = z
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["msk"],
-          message:
-            "MSK provider requires msk.bootstrapBrokers or msk.clusterArn to be set",
+          message: "MSK provider requires msk.bootstrapBrokers or msk.clusterArn to be set",
         });
       }
     }
@@ -98,8 +76,7 @@ export const configSchema = z
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["confluent", "bootstrapServers"],
-          message:
-            "Confluent provider requires confluent.bootstrapServers to be set",
+          message: "Confluent provider requires confluent.bootstrapServers to be set",
         });
       }
       if (config.confluent.apiKey.length === 0) {

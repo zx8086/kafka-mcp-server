@@ -1,8 +1,6 @@
 // src/services/client-manager.ts
-import { Admin } from "@platformatic/kafka";
-import { Producer } from "@platformatic/kafka";
-import { Consumer } from "@platformatic/kafka";
-import type { KafkaProvider, KafkaConnectionConfig } from "../providers/types.ts";
+import { Admin, Consumer, Producer } from "@platformatic/kafka";
+import type { KafkaConnectionConfig, KafkaProvider } from "../providers/types.ts";
 
 export class KafkaClientManager {
   private admin: Admin | null = null;

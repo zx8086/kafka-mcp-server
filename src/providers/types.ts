@@ -1,5 +1,5 @@
 // src/providers/types.ts
-import type { SASLOptions, ConnectionOptions } from "@platformatic/kafka";
+import type { ConnectionOptions, SASLOptions } from "@platformatic/kafka";
 
 export interface KafkaConnectionConfig {
   clientId: string;

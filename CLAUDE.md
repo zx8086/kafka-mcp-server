@@ -1,106 +1,67 @@
+# Kafka MCP Server
 
-Default to using Bun instead of Node.js.
+## Runtime
 
-- Use `bun <file>` instead of `node <file>` or `ts-node <file>`
+Default to Bun instead of Node.js.
+
+- Use `bun <file>` instead of `node` or `ts-node`
 - Use `bun test` instead of `jest` or `vitest`
-- Use `bun build <file.html|file.ts|file.css>` instead of `webpack` or `esbuild`
-- Use `bun install` instead of `npm install` or `yarn install` or `pnpm install`
-- Use `bun run <script>` instead of `npm run <script>` or `yarn run <script>` or `pnpm run <script>`
-- Use `bunx <package> <command>` instead of `npx <package> <command>`
-- Bun automatically loads .env, so don't use dotenv.
+- Use `bun install` instead of `npm install`
+- Use `bun run <script>` instead of `npm run <script>`
+- Bun automatically loads `.env` -- don't use dotenv
+- Prefer `Bun.file` over `node:fs` readFile/writeFile
+- Use `Bun.$` for shell commands instead of execa
 
-## APIs
+## Architecture
 
-- `Bun.serve()` supports WebSockets, HTTPS, and routes. Don't use `express`.
-- `bun:sqlite` for SQLite. Don't use `better-sqlite3`.
-- `Bun.redis` for Redis. Don't use `ioredis`.
-- `Bun.sql` for Postgres. Don't use `pg` or `postgres.js`.
-- `WebSocket` is built-in. Don't use `ws`.
-- Prefer `Bun.file` over `node:fs`'s readFile/writeFile
-- Bun.$`ls` instead of execa.
+Layered design: config -> providers -> services -> tools
+
+```
+src/
+  config/       Env-driven config: mapping, defaults, Zod schemas, loader
+  providers/    Kafka provider abstractions (local, msk, confluent)
+  services/     KafkaService (operations) + KafkaClientManager (lifecycle)
+  tools/        MCP tool definitions by category
+    read/       7 read-only tools (always available)
+    write/      3 write tools (gated by KAFKA_ALLOW_WRITES)
+    destructive/  2 destructive tools (gated by KAFKA_ALLOW_DESTRUCTIVE)
+    shared/     Shared utilities (wrap.ts for universal handler wrapping)
+  lib/          Error handling, response builder
+  logging/      Pino logger with ECS formatting, singleton container
+  telemetry/    OpenTelemetry init, tracing decorator
+  index.ts      Entry point: config -> logger -> telemetry -> provider -> service -> tools -> stdio
+```
+
+## Configuration
+
+4-pillar pattern: defaults (`defaults.ts`) -> env mapping (`env-mapping.ts`) -> Zod validation (`schemas.ts`) -> singleton cache (`config.ts`).
+
+All config is env-driven. See `src/config/env-mapping.ts` for the full variable list.
+
+## Providers
+
+Three providers implementing `KafkaProvider` interface:
+
+- **local** -- No auth, plain TCP to `LOCAL_BOOTSTRAP_SERVERS`
+- **msk** -- IAM OAUTHBEARER via `aws-msk-iam-sasl-signer-js`, TLS, optional broker discovery from cluster ARN
+- **confluent** -- PLAIN SASL (API key/secret), TLS, optional REST client for enriched metadata
+
+Factory in `src/providers/factory.ts` selects by `KAFKA_PROVIDER` env var.
+
+## Tools
+
+12 MCP tools in 3 categories:
+
+**Read** (7): `kafka_list_topics`, `kafka_describe_topic`, `kafka_get_topic_offsets`, `kafka_consume_messages`, `kafka_list_consumer_groups`, `kafka_describe_consumer_group`, `kafka_get_cluster_info`
+
+**Write** (3): `kafka_produce_message`, `kafka_create_topic`, `kafka_alter_topic_config`
+
+**Destructive** (2): `kafka_delete_topic`, `kafka_reset_consumer_group_offsets`
+
+Permission gates checked in `src/tools/wrap.ts` via `wrapHandler()` before any handler executes.
 
 ## Testing
 
-Use `bun test` to run tests.
-
-```ts#index.test.ts
-import { test, expect } from "bun:test";
-
-test("hello world", () => {
-  expect(1).toBe(1);
-});
+```bash
+bun test
 ```
-
-## Frontend
-
-Use HTML imports with `Bun.serve()`. Don't use `vite`. HTML imports fully support React, CSS, Tailwind.
-
-Server:
-
-```ts#index.ts
-import index from "./index.html"
-
-Bun.serve({
-  routes: {
-    "/": index,
-    "/api/users/:id": {
-      GET: (req) => {
-        return new Response(JSON.stringify({ id: req.params.id }));
-      },
-    },
-  },
-  // optional websocket support
-  websocket: {
-    open: (ws) => {
-      ws.send("Hello, world!");
-    },
-    message: (ws, message) => {
-      ws.send(message);
-    },
-    close: (ws) => {
-      // handle close
-    }
-  },
-  development: {
-    hmr: true,
-    console: true,
-  }
-})
-```
-
-HTML files can import .tsx, .jsx or .js files directly and Bun's bundler will transpile & bundle automatically. `<link>` tags can point to stylesheets and Bun's CSS bundler will bundle.
-
-```html#index.html
-<html>
-  <body>
-    <h1>Hello, world!</h1>
-    <script type="module" src="./frontend.tsx"></script>
-  </body>
-</html>
-```
-
-With the following `frontend.tsx`:
-
-```tsx#frontend.tsx
-import React from "react";
-import { createRoot } from "react-dom/client";
-
-// import .css files directly and it works
-import './index.css';
-
-const root = createRoot(document.body);
-
-export default function Frontend() {
-  return <h1>Hello, world!</h1>;
-}
-
-root.render(<Frontend />);
-```
-
-Then, run index.ts
-
-```sh
-bun --hot ./index.ts
-```
-
-For more information, read the Bun API docs in `node_modules/bun-types/docs/**.mdx`.

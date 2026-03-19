@@ -1,18 +1,14 @@
 // src/tools/write/tools.ts
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { KafkaService } from "../../services/kafka-service.ts";
-import type { AppConfig } from "../../config/schemas.ts";
-import { ResponseBuilder } from "../../lib/response-builder.ts";
-import { wrapHandler } from "../wrap.ts";
 import { getConfig } from "../../config/index.ts";
+import { ResponseBuilder } from "../../lib/response-builder.ts";
+import type { KafkaService } from "../../services/kafka-service.ts";
+import { wrapHandler } from "../wrap.ts";
+import * as ops from "./operations.ts";
 import * as params from "./parameters.ts";
 import * as prompts from "./prompts.ts";
-import * as ops from "./operations.ts";
 
-export function registerWriteTools(
-  server: McpServer,
-  service: KafkaService
-): void {
+export function registerWriteTools(server: McpServer, service: KafkaService): void {
   const config = getConfig();
 
   server.tool(
@@ -22,7 +18,7 @@ export function registerWriteTools(
     wrapHandler("kafka_produce_message", config, async (args) => {
       const result = await ops.produceMessage(service, args);
       return ResponseBuilder.success(result);
-    })
+    }),
   );
 
   server.tool(
@@ -32,7 +28,7 @@ export function registerWriteTools(
     wrapHandler("kafka_create_topic", config, async (args) => {
       const result = await ops.createTopic(service, args);
       return ResponseBuilder.success(result);
-    })
+    }),
   );
 
   server.tool(
@@ -42,6 +38,6 @@ export function registerWriteTools(
     wrapHandler("kafka_alter_topic_config", config, async (args) => {
       const result = await ops.alterTopicConfig(service, args);
       return ResponseBuilder.success(result);
-    })
+    }),
   );
 }

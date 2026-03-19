@@ -1,15 +1,15 @@
 // src/index.ts
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import type { NodeSDK } from "@opentelemetry/sdk-node";
 import { getConfig } from "./config/index.ts";
+import { getLogger, setLogger } from "./logging/container.ts";
 import { createLogger } from "./logging/create-logger.ts";
-import { setLogger, getLogger } from "./logging/container.ts";
-import { initTelemetry, shutdownTelemetry } from "./telemetry/telemetry.ts";
 import { createProvider } from "./providers/factory.ts";
 import { KafkaClientManager } from "./services/client-manager.ts";
 import { KafkaService } from "./services/kafka-service.ts";
+import { initTelemetry, shutdownTelemetry } from "./telemetry/telemetry.ts";
 import { registerAllTools } from "./tools/index.ts";
-import type { NodeSDK } from "@opentelemetry/sdk-node";
 
 async function main(): Promise<void> {
   // 1. Load config

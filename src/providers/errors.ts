@@ -12,12 +12,7 @@ export class KafkaProviderError extends Error {
   public readonly provider: string;
   public override readonly cause?: unknown;
 
-  constructor(
-    message: string,
-    code: ProviderErrorCode,
-    provider: string,
-    cause?: unknown
-  ) {
+  constructor(message: string, code: ProviderErrorCode, provider: string, cause?: unknown) {
     super(message);
     this.name = "KafkaProviderError";
     this.code = code;

@@ -12,7 +12,7 @@ export async function produceMessage(
       partition?: number;
     }>;
     acks?: number;
-  }
+  },
 ) {
   return service.produceMessage(params.topic, params.messages, params.acks);
 }
@@ -24,14 +24,14 @@ export async function createTopic(
     partitions?: number;
     replicas?: number;
     configs?: Record<string, string>;
-  }
+  },
 ) {
   return service.createTopic(params);
 }
 
 export async function alterTopicConfig(
   service: KafkaService,
-  params: { topic: string; configs: Record<string, string> }
+  params: { topic: string; configs: Record<string, string> },
 ) {
   return service.alterTopicConfig(params.topic, params.configs);
 }

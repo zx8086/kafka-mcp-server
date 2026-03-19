@@ -1,5 +1,5 @@
 // src/telemetry/tracing.ts
-import { trace, SpanStatusCode, type Span } from "@opentelemetry/api";
+import { type Span, SpanStatusCode, trace } from "@opentelemetry/api";
 
 export const tracer = trace.getTracer("kafka-mcp-server");
 
@@ -16,8 +16,7 @@ export async function traceToolExecution<T>(
       span.setStatus({ code: SpanStatusCode.OK });
       return result;
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : String(error);
+      const message = error instanceof Error ? error.message : String(error);
       span.setStatus({ code: SpanStatusCode.ERROR, message });
       if (error instanceof Error) {
         span.recordException(error);

@@ -1,7 +1,7 @@
 // src/logging/create-logger.ts
 
-import pino from "pino";
 import ecsFormat from "@elastic/ecs-pino-format";
+import pino from "pino";
 import type { ILogger } from "./ports/logger.port.ts";
 
 interface CreateLoggerOptions {
@@ -31,7 +31,7 @@ function wrapPino(instance: pino.Logger): ILogger {
       return instance.flush();
     },
     reinitialize(options?: Record<string, unknown>) {
-      const newLevel = options?.["level"];
+      const newLevel = options?.level;
       if (typeof newLevel === "string") {
         instance.level = newLevel;
       }
@@ -40,10 +40,9 @@ function wrapPino(instance: pino.Logger): ILogger {
 }
 
 export function createLogger(options?: CreateLoggerOptions): ILogger {
-  const level =
-    options?.level ?? Bun.env["LOG_LEVEL"] ?? "info";
+  const level = options?.level ?? Bun.env.LOG_LEVEL ?? "info";
   const name = options?.name ?? "kafka-mcp-server";
-  const isDev = options?.isDev ?? Bun.env["NODE_ENV"] === "development";
+  const isDev = options?.isDev ?? Bun.env.NODE_ENV === "development";
 
   if (isDev) {
     let transport: pino.TransportSingleOptions | undefined;
@@ -61,10 +60,7 @@ export function createLogger(options?: CreateLoggerOptions): ILogger {
 
     const instance = transport
       ? pino({ level, name, transport })
-      : pino(
-          { level, name },
-          pino.destination({ dest: 2, sync: false }),
-        );
+      : pino({ level, name }, pino.destination({ dest: 2, sync: false }));
 
     return wrapPino(instance);
   }

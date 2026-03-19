@@ -1,9 +1,9 @@
 // src/tools/wrap.ts
 import type { AppConfig } from "../config/schemas.ts";
-import { ResponseBuilder } from "../lib/response-builder.ts";
 import { normalizeError } from "../lib/errors.ts";
-import { traceToolExecution } from "../telemetry/tracing.ts";
+import { ResponseBuilder } from "../lib/response-builder.ts";
 import { getLogger } from "../logging/container.ts";
+import { traceToolExecution } from "../telemetry/tracing.ts";
 
 type ToolResponse = {
   content: Array<{ type: "text"; text: string }>;
@@ -16,27 +16,24 @@ const WRITE_TOOLS = new Set([
   "kafka_alter_topic_config",
 ]);
 
-const DESTRUCTIVE_TOOLS = new Set([
-  "kafka_delete_topic",
-  "kafka_reset_consumer_group_offsets",
-]);
+const DESTRUCTIVE_TOOLS = new Set(["kafka_delete_topic", "kafka_reset_consumer_group_offsets"]);
 
 export function wrapHandler<T>(
   toolName: string,
   config: AppConfig,
-  handler: (args: T) => Promise<ToolResponse>
+  handler: (args: T) => Promise<ToolResponse>,
 ): (args: T) => Promise<ToolResponse> {
   return async (args: T) => {
     const logger = getLogger();
 
     if (WRITE_TOOLS.has(toolName) && !config.kafka.allowWrites) {
       return ResponseBuilder.error(
-        "Write operations are disabled. Set KAFKA_ALLOW_WRITES=true to enable."
+        "Write operations are disabled. Set KAFKA_ALLOW_WRITES=true to enable.",
       );
     }
     if (DESTRUCTIVE_TOOLS.has(toolName) && !config.kafka.allowDestructive) {
       return ResponseBuilder.error(
-        "Destructive operations are disabled. Set KAFKA_ALLOW_DESTRUCTIVE=true to enable."
+        "Destructive operations are disabled. Set KAFKA_ALLOW_DESTRUCTIVE=true to enable.",
       );
     }
 

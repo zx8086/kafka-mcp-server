@@ -1,6 +1,7 @@
 // src/providers/confluent.ts
-import type { KafkaProvider, KafkaConnectionConfig } from "./types.ts";
+
 import { ConfluentRestClient } from "./confluent-rest.ts";
+import type { KafkaConnectionConfig, KafkaProvider } from "./types.ts";
 
 export class ConfluentKafkaProvider implements KafkaProvider {
   readonly type = "confluent" as const;
@@ -13,14 +14,10 @@ export class ConfluentKafkaProvider implements KafkaProvider {
     private readonly apiSecret: string,
     private readonly clientId: string,
     private readonly restEndpoint?: string,
-    private readonly clusterId?: string
+    private readonly clusterId?: string,
   ) {
     if (this.restEndpoint && this.clusterId) {
-      this.restClient = new ConfluentRestClient(
-        this.restEndpoint,
-        this.apiKey,
-        this.apiSecret
-      );
+      this.restClient = new ConfluentRestClient(this.restEndpoint, this.apiKey, this.apiSecret);
     }
   }
 
@@ -48,8 +45,7 @@ export class ConfluentKafkaProvider implements KafkaProvider {
       // Enrichment is additive, not required
       return {
         provider: "confluent",
-        restApiError:
-          error instanceof Error ? error.message : String(error),
+        restApiError: error instanceof Error ? error.message : String(error),
       };
     }
   }

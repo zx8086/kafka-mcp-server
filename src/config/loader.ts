@@ -2,19 +2,12 @@
 
 import { defaults } from "./defaults.ts";
 import { envMapping } from "./env-mapping.ts";
-import { configSchema, type AppConfig } from "./schemas.ts";
 import { toBool, toNumber } from "./helpers.ts";
+import { type AppConfig, configSchema } from "./schemas.ts";
 
-const booleanPaths = new Set([
-  "kafka.allowWrites",
-  "kafka.allowDestructive",
-  "telemetry.enabled",
-]);
+const booleanPaths = new Set(["kafka.allowWrites", "kafka.allowDestructive", "telemetry.enabled"]);
 
-const numberPaths = new Set([
-  "kafka.consumeMaxMessages",
-  "kafka.consumeTimeoutMs",
-]);
+const numberPaths = new Set(["kafka.consumeMaxMessages", "kafka.consumeTimeoutMs"]);
 
 function setNested(
   obj: Record<string, Record<string, unknown>>,
@@ -41,15 +34,11 @@ export function loadConfig(): AppConfig {
 
     if (booleanPaths.has(dotPath)) {
       const [section, key] = dotPath.split(".") as [string, string];
-      const fallback = defaults[section as keyof typeof defaults]?.[
-        key as never
-      ] as boolean;
+      const fallback = defaults[section as keyof typeof defaults]?.[key as never] as boolean;
       setNested(merged, dotPath, toBool(raw, fallback));
     } else if (numberPaths.has(dotPath)) {
       const [section, key] = dotPath.split(".") as [string, string];
-      const fallback = defaults[section as keyof typeof defaults]?.[
-        key as never
-      ] as number;
+      const fallback = defaults[section as keyof typeof defaults]?.[key as never] as number;
       setNested(merged, dotPath, toNumber(raw, fallback));
     } else {
       setNested(merged, dotPath, raw);

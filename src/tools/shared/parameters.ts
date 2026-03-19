@@ -1,15 +1,9 @@
 // src/tools/shared/parameters.ts
 import { z } from "zod";
 
-export const TopicNameParam = z
-  .string()
-  .min(1)
-  .describe("Kafka topic name");
+export const TopicNameParam = z.string().min(1).describe("Kafka topic name");
 
-export const GroupIdParam = z
-  .string()
-  .min(1)
-  .describe("Consumer group ID");
+export const GroupIdParam = z.string().min(1).describe("Consumer group ID");
 
 export const TopicFilterParam = z
   .string()

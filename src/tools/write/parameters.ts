@@ -13,13 +13,8 @@ export const ProduceMessageParams = z.object({
           .record(z.string(), z.string())
           .optional()
           .describe("Message headers as key-value pairs"),
-        partition: z
-          .number()
-          .int()
-          .min(0)
-          .optional()
-          .describe("Target partition number"),
-      })
+        partition: z.number().int().min(0).optional().describe("Target partition number"),
+      }),
     )
     .min(1)
     .max(50)
@@ -42,26 +37,16 @@ export const CreateTopicParams = z.object({
     .max(1000)
     .optional()
     .describe("Number of partitions (default: 1)"),
-  replicas: z
-    .number()
-    .int()
-    .min(1)
-    .max(10)
-    .optional()
-    .describe("Number of replicas (default: 1)"),
+  replicas: z.number().int().min(1).max(10).optional().describe("Number of replicas (default: 1)"),
   configs: z
     .record(z.string(), z.string())
     .optional()
-    .describe(
-      "Topic configuration entries (e.g., retention.ms, cleanup.policy)"
-    ),
+    .describe("Topic configuration entries (e.g., retention.ms, cleanup.policy)"),
 });
 
 export const AlterTopicConfigParams = z.object({
   topic: TopicNameParam,
   configs: z
     .record(z.string(), z.string())
-    .describe(
-      "Configuration entries to update (e.g., retention.ms: '86400000')"
-    ),
+    .describe("Configuration entries to update (e.g., retention.ms: '86400000')"),
 });

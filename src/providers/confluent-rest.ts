@@ -23,7 +23,7 @@ export class ConfluentRestClient {
       throw new KafkaProviderError(
         `Confluent REST API error: ${response.status} ${response.statusText}`,
         "PROVIDER_CONNECTION_FAILED",
-        "confluent"
+        "confluent",
       );
     }
 

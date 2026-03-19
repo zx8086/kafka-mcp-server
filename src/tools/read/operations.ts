@@ -1,18 +1,13 @@
 // src/tools/read/operations.ts
-import type { KafkaService } from "../../services/kafka-service.ts";
-import type { AppConfig } from "../../config/schemas.ts";
 
-export async function listTopics(
-  service: KafkaService,
-  params: { filter?: string },
-) {
+import type { AppConfig } from "../../config/schemas.ts";
+import type { KafkaService } from "../../services/kafka-service.ts";
+
+export async function listTopics(service: KafkaService, params: { filter?: string }) {
   return service.listTopics(params.filter);
 }
 
-export async function describeTopic(
-  service: KafkaService,
-  params: { topic: string },
-) {
+export async function describeTopic(service: KafkaService, params: { topic: string }) {
   return service.describeTopic(params.topic);
 }
 
@@ -48,10 +43,7 @@ export async function listConsumerGroups(
   return service.listConsumerGroups(params.filter, params.states);
 }
 
-export async function describeConsumerGroup(
-  service: KafkaService,
-  params: { groupId: string },
-) {
+export async function describeConsumerGroup(service: KafkaService, params: { groupId: string }) {
   return service.describeConsumerGroup(params.groupId);
 }
 

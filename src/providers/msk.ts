@@ -1,6 +1,7 @@
 // src/providers/msk.ts
-import type { KafkaProvider, KafkaConnectionConfig } from "./types.ts";
+
 import { KafkaProviderError } from "./errors.ts";
+import type { KafkaConnectionConfig, KafkaProvider } from "./types.ts";
 
 interface CachedToken {
   token: string;
@@ -17,7 +18,7 @@ export class MskKafkaProvider implements KafkaProvider {
     private readonly bootstrapBrokers: string,
     private readonly clusterArn: string,
     private readonly region: string,
-    private readonly clientId: string
+    private readonly clientId: string,
   ) {}
 
   async getConnectionConfig(): Promise<KafkaConnectionConfig> {
@@ -40,12 +41,10 @@ export class MskKafkaProvider implements KafkaProvider {
     }
 
     try {
-      const { KafkaClient, DescribeClusterV2Command } = await import(
-        "@aws-sdk/client-kafka"
-      );
+      const { KafkaClient, DescribeClusterV2Command } = await import("@aws-sdk/client-kafka");
       const client = new KafkaClient({ region: this.region });
       const response = await client.send(
-        new DescribeClusterV2Command({ ClusterArn: this.clusterArn })
+        new DescribeClusterV2Command({ ClusterArn: this.clusterArn }),
       );
       return {
         provider: "msk",
@@ -75,9 +74,7 @@ export class MskKafkaProvider implements KafkaProvider {
     }
 
     try {
-      const { generateAuthToken } = await import(
-        "aws-msk-iam-sasl-signer-js"
-      );
+      const { generateAuthToken } = await import("aws-msk-iam-sasl-signer-js");
       const result = await generateAuthToken({ region: this.region });
       this.cachedToken = {
         token: result.token,
@@ -89,7 +86,7 @@ export class MskKafkaProvider implements KafkaProvider {
         `Failed to generate MSK IAM token: ${error instanceof Error ? error.message : String(error)}`,
         "PROVIDER_AUTH_FAILED",
         "msk",
-        error
+        error,
       );
     }
   }
@@ -107,17 +104,15 @@ export class MskKafkaProvider implements KafkaProvider {
       throw new KafkaProviderError(
         "MSK provider requires either bootstrapBrokers or clusterArn",
         "PROVIDER_CONFIG_INVALID",
-        "msk"
+        "msk",
       );
     }
 
     try {
-      const { KafkaClient, GetBootstrapBrokersCommand } = await import(
-        "@aws-sdk/client-kafka"
-      );
+      const { KafkaClient, GetBootstrapBrokersCommand } = await import("@aws-sdk/client-kafka");
       const client = new KafkaClient({ region: this.region });
       const response = await client.send(
-        new GetBootstrapBrokersCommand({ ClusterArn: this.clusterArn })
+        new GetBootstrapBrokersCommand({ ClusterArn: this.clusterArn }),
       );
 
       const brokers =
@@ -129,7 +124,7 @@ export class MskKafkaProvider implements KafkaProvider {
         throw new KafkaProviderError(
           "No bootstrap brokers found for MSK cluster",
           "PROVIDER_CONFIG_INVALID",
-          "msk"
+          "msk",
         );
       }
 
@@ -141,7 +136,7 @@ export class MskKafkaProvider implements KafkaProvider {
         `Failed to discover MSK brokers: ${error instanceof Error ? error.message : String(error)}`,
         "PROVIDER_CONNECTION_FAILED",
         "msk",
-        error
+        error,
       );
     }
   }

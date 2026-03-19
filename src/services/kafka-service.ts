@@ -1,12 +1,13 @@
 // src/services/kafka-service.ts
+
+import type { Message } from "@platformatic/kafka";
 import {
-  ConfigResourceTypes,
-  ListOffsetTimestamps,
-  type ListedOffsetsTopic,
   type ConfigDescription,
+  ConfigResourceTypes,
+  type ListedOffsetsTopic,
+  ListOffsetTimestamps,
 } from "@platformatic/kafka";
 import type { KafkaClientManager } from "./client-manager.ts";
-import type { Message } from "@platformatic/kafka";
 
 export interface ConsumeMessagesOptions {
   topic: string;
@@ -52,9 +53,7 @@ export class KafkaService {
     return filtered.map((name) => ({ name }));
   }
 
-  async describeTopic(
-    topicName: string
-  ): Promise<{
+  async describeTopic(topicName: string): Promise<{
     name: string;
     offsets: ListedOffsetsTopic | null;
     configs: ConfigDescription | null;
@@ -67,18 +66,14 @@ export class KafkaService {
           topics: [
             {
               name: topicName,
-              partitions: [
-                { partitionIndex: -1, timestamp: ListOffsetTimestamps.LATEST },
-              ],
+              partitions: [{ partitionIndex: -1, timestamp: ListOffsetTimestamps.LATEST }],
             },
           ],
         })
         .catch(() => null),
       admin
         .describeConfigs({
-          resources: [
-            { resourceType: ConfigResourceTypes.TOPIC, resourceName: topicName },
-          ],
+          resources: [{ resourceType: ConfigResourceTypes.TOPIC, resourceName: topicName }],
         })
         .catch(() => null),
     ]);
@@ -93,15 +88,9 @@ export class KafkaService {
     };
   }
 
-  async getTopicOffsets(
-    topicName: string,
-    timestamp?: number
-  ): Promise<ListedOffsetsTopic | null> {
+  async getTopicOffsets(topicName: string, timestamp?: number): Promise<ListedOffsetsTopic | null> {
     const admin = await this.clientManager.getAdmin();
-    const ts =
-      timestamp !== undefined
-        ? BigInt(timestamp)
-        : ListOffsetTimestamps.LATEST;
+    const ts = timestamp !== undefined ? BigInt(timestamp) : ListOffsetTimestamps.LATEST;
 
     const result = await admin.listOffsets({
       topics: [
@@ -115,9 +104,7 @@ export class KafkaService {
     return result.find((t) => t.name === topicName) ?? null;
   }
 
-  async consumeMessages(
-    options: ConsumeMessagesOptions
-  ): Promise<
+  async consumeMessages(options: ConsumeMessagesOptions): Promise<
     Array<{
       topic: string;
       partition: number;
@@ -151,15 +138,10 @@ export class KafkaService {
 
       const deadline = Date.now() + options.timeoutMs;
 
-      for await (const msg of stream as AsyncIterable<
-        Message<Buffer, Buffer, Buffer, Buffer>
-      >) {
+      for await (const msg of stream as AsyncIterable<Message<Buffer, Buffer, Buffer, Buffer>>) {
         messages.push(formatMessage(msg));
 
-        if (
-          messages.length >= options.maxMessages ||
-          Date.now() >= deadline
-        ) {
+        if (messages.length >= options.maxMessages || Date.now() >= deadline) {
           break;
         }
       }
@@ -176,10 +158,8 @@ export class KafkaService {
 
   async listConsumerGroups(
     filter?: string,
-    states?: string[]
-  ): Promise<
-    Array<{ id: string; state: string; groupType: string; protocolType: string }>
-  > {
+    states?: string[],
+  ): Promise<Array<{ id: string; state: string; groupType: string; protocolType: string }>> {
     const admin = await this.clientManager.getAdmin();
     const groupsMap = await admin.listGroups({
       states: states as Parameters<typeof admin.listGroups>[0] extends infer T
@@ -204,9 +184,7 @@ export class KafkaService {
     }));
   }
 
-  async describeConsumerGroup(
-    groupId: string
-  ): Promise<{
+  async describeConsumerGroup(groupId: string): Promise<{
     groupId: string;
     state: string;
     protocol: string;
@@ -228,9 +206,7 @@ export class KafkaService {
 
     const [groupsMap, offsetGroups] = await Promise.all([
       admin.describeGroups({ groups: [groupId] }),
-      admin
-        .listConsumerGroupOffsets({ groups: [groupId] })
-        .catch(() => []),
+      admin.listConsumerGroupOffsets({ groups: [groupId] }).catch(() => []),
     ]);
 
     const group = groupsMap.get(groupId);
@@ -284,7 +260,7 @@ export class KafkaService {
   async produceMessage(
     topic: string,
     messages: ProduceMessageInput[],
-    acks?: number
+    acks?: number,
   ): Promise<{ offsets: Array<{ topic: string; partition: number; offset: string }> }> {
     const producer = await this.clientManager.getProducer();
 
@@ -294,12 +270,7 @@ export class KafkaService {
       value: Buffer.from(m.value),
       partition: m.partition,
       headers: m.headers
-        ? new Map(
-            Object.entries(m.headers).map(([k, v]) => [
-              Buffer.from(k),
-              Buffer.from(v),
-            ])
-          )
+        ? new Map(Object.entries(m.headers).map(([k, v]) => [Buffer.from(k), Buffer.from(v)]))
         : undefined,
     }));
 
@@ -346,7 +317,7 @@ export class KafkaService {
 
   async alterTopicConfig(
     topicName: string,
-    configs: Record<string, string>
+    configs: Record<string, string>,
   ): Promise<{ topic: string; updatedConfigs: Record<string, string> }> {
     const admin = await this.clientManager.getAdmin();
 
@@ -380,7 +351,7 @@ export class KafkaService {
   }
 
   async resetConsumerGroupOffsets(
-    input: ResetOffsetsInput
+    input: ResetOffsetsInput,
   ): Promise<{ groupId: string; topic: string; strategy: string }> {
     const admin = await this.clientManager.getAdmin();
 
@@ -389,7 +360,7 @@ export class KafkaService {
     const group = groups.get(input.groupId);
     if (group && group.state !== "EMPTY") {
       throw new Error(
-        `Consumer group '${input.groupId}' must be in EMPTY state to reset offsets (current: ${group.state})`
+        `Consumer group '${input.groupId}' must be in EMPTY state to reset offsets (current: ${group.state})`,
       );
     }
 
@@ -414,9 +385,7 @@ export class KafkaService {
       topics: [
         {
           name: input.topic,
-          partitions: [
-            { partitionIndex: -1, timestamp: targetTimestamp },
-          ],
+          partitions: [{ partitionIndex: -1, timestamp: targetTimestamp }],
         },
       ],
     });
@@ -447,9 +416,7 @@ export class KafkaService {
   }
 }
 
-function formatMessage(
-  msg: Message<Buffer, Buffer, Buffer, Buffer>
-): {
+function formatMessage(msg: Message<Buffer, Buffer, Buffer, Buffer>): {
   topic: string;
   partition: number;
   offset: string;

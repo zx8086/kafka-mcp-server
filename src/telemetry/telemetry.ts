@@ -1,19 +1,14 @@
 // src/telemetry/telemetry.ts
-import { NodeSDK } from "@opentelemetry/sdk-node";
-import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { resourceFromAttributes } from "@opentelemetry/resources";
-import { ATTR_SERVICE_NAME } from "@opentelemetry/semantic-conventions";
-import {
-  BatchSpanProcessor,
-  ConsoleSpanExporter,
-} from "@opentelemetry/sdk-trace-node";
-import {
-  PeriodicExportingMetricReader,
-  ConsoleMetricExporter,
-} from "@opentelemetry/sdk-metrics";
-import type { SpanExporter } from "@opentelemetry/sdk-trace-node";
 import type { PushMetricExporter } from "@opentelemetry/sdk-metrics";
+import { ConsoleMetricExporter, PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
+import { NodeSDK } from "@opentelemetry/sdk-node";
+import type { SpanExporter } from "@opentelemetry/sdk-trace-node";
+import { BatchSpanProcessor, ConsoleSpanExporter } from "@opentelemetry/sdk-trace-node";
+import { ATTR_SERVICE_NAME } from "@opentelemetry/semantic-conventions";
 
 export interface TelemetryConfig {
   enabled: boolean;
@@ -35,18 +30,12 @@ function buildExporters(config: TelemetryConfig): {
   }
 
   if (config.mode === "otlp" || config.mode === "both") {
-    spanExporters.push(
-      new OTLPTraceExporter({ url: `${config.otlpEndpoint}/v1/traces` }),
-    );
-    metricExporters.push(
-      new OTLPMetricExporter({ url: `${config.otlpEndpoint}/v1/metrics` }),
-    );
+    spanExporters.push(new OTLPTraceExporter({ url: `${config.otlpEndpoint}/v1/traces` }));
+    metricExporters.push(new OTLPMetricExporter({ url: `${config.otlpEndpoint}/v1/metrics` }));
   }
 
   return {
-    spanProcessors: spanExporters.map(
-      (exporter) => new BatchSpanProcessor(exporter),
-    ),
+    spanProcessors: spanExporters.map((exporter) => new BatchSpanProcessor(exporter)),
     metricReaders: metricExporters.map(
       (exporter) => new PeriodicExportingMetricReader({ exporter }),
     ),

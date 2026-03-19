@@ -1,7 +1,7 @@
 // src/logging/container.ts
 
-import type { ILogger } from "./ports/logger.port.ts";
 import { createLogger } from "./create-logger.ts";
+import type { ILogger } from "./ports/logger.port.ts";
 
 let _logger: ILogger | null = null;
 

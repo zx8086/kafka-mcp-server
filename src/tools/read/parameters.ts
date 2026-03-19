@@ -1,12 +1,12 @@
 // src/tools/read/parameters.ts
 import { z } from "zod";
 import {
-  TopicNameParam,
-  TopicFilterParam,
-  GroupIdParam,
   GroupFilterParam,
-  TimeoutParam,
+  GroupIdParam,
   MaxMessagesParam,
+  TimeoutParam,
+  TopicFilterParam,
+  TopicNameParam,
 } from "../shared/parameters.ts";
 
 export const ListTopicsParams = z.object({
@@ -29,10 +29,7 @@ export const ConsumeMessagesParams = z.object({
   topic: TopicNameParam,
   maxMessages: MaxMessagesParam,
   timeoutMs: TimeoutParam,
-  fromBeginning: z
-    .boolean()
-    .optional()
-    .describe("Start consuming from the beginning of the topic"),
+  fromBeginning: z.boolean().optional().describe("Start consuming from the beginning of the topic"),
 });
 
 export const ListConsumerGroupsParams = z.object({
