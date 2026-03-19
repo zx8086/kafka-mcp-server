@@ -1,7 +1,7 @@
 // src/transport/factory.ts
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { AppConfig } from "../config/schemas.ts";
 import { splitCommaSeparated } from "../config/helpers.ts";
+import type { AppConfig } from "../config/schemas.ts";
 import { getLogger } from "../logging/container.ts";
 import type { HttpTransportResult } from "./http.ts";
 import { startHttpTransport } from "./http.ts";

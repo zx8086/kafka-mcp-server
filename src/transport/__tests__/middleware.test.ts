@@ -1,6 +1,6 @@
 // src/transport/__tests__/middleware.test.ts
 import { describe, expect, test } from "bun:test";
-import { withOriginValidation, withApiKeyAuth } from "../middleware.ts";
+import { withApiKeyAuth, withOriginValidation } from "../middleware.ts";
 
 const okHandler = async (_req: Request) => Response.json({ ok: true });
 
@@ -31,7 +31,7 @@ describe("withOriginValidation", () => {
       }),
     );
     expect(res.status).toBe(403);
-    const body = await res.json();
+    const body = (await res.json()) as { error: { message: string } };
     expect(body.error.message).toBe("Origin not allowed");
   });
 
@@ -69,7 +69,7 @@ describe("withApiKeyAuth", () => {
     const handler = withApiKeyAuth(okHandler, "secret-key");
     const res = await handler(new Request("http://localhost/mcp", { method: "POST" }));
     expect(res.status).toBe(401);
-    const body = await res.json();
+    const body = (await res.json()) as { error: { message: string } };
     expect(body.error.message).toBe("Unauthorized");
   });
 

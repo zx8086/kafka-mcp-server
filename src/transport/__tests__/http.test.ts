@@ -1,5 +1,5 @@
 // src/transport/__tests__/http.test.ts
-import { describe, expect, test, afterEach } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 
 describe("HTTP transport stateless mode", () => {
   let server: ReturnType<typeof Bun.serve> | null = null;
@@ -17,7 +17,13 @@ describe("HTTP transport stateless mode", () => {
       () => {
         throw new Error("should not create server for GET");
       },
-      { port: 0, host: "127.0.0.1", path: "/mcp", sessionMode: "stateless" as const, idleTimeout: 10 },
+      {
+        port: 0,
+        host: "127.0.0.1",
+        path: "/mcp",
+        sessionMode: "stateless" as const,
+        idleTimeout: 10,
+      },
     );
     server = result.server;
     const res = await fetch(`http://127.0.0.1:${server.port}/mcp`, { method: "GET" });
@@ -31,7 +37,13 @@ describe("HTTP transport stateless mode", () => {
       () => {
         throw new Error("should not create server for DELETE");
       },
-      { port: 0, host: "127.0.0.1", path: "/mcp", sessionMode: "stateless" as const, idleTimeout: 10 },
+      {
+        port: 0,
+        host: "127.0.0.1",
+        path: "/mcp",
+        sessionMode: "stateless" as const,
+        idleTimeout: 10,
+      },
     );
     server = result.server;
     const res = await fetch(`http://127.0.0.1:${server.port}/mcp`, { method: "DELETE" });
@@ -45,7 +57,13 @@ describe("HTTP transport stateless mode", () => {
       () => {
         throw new Error("should not create server");
       },
-      { port: 0, host: "127.0.0.1", path: "/mcp", sessionMode: "stateless" as const, idleTimeout: 10 },
+      {
+        port: 0,
+        host: "127.0.0.1",
+        path: "/mcp",
+        sessionMode: "stateless" as const,
+        idleTimeout: 10,
+      },
     );
     server = result.server;
     const res = await fetch(`http://127.0.0.1:${server.port}/unknown`);
@@ -69,7 +87,13 @@ describe("HTTP transport stateful mode", () => {
     const { McpServer } = await import("@modelcontextprotocol/sdk/server/mcp.js");
     const result = await startHttpTransport(
       () => new McpServer({ name: "test", version: "0.1.0" }),
-      { port: 0, host: "127.0.0.1", path: "/mcp", sessionMode: "stateful" as const, idleTimeout: 10 },
+      {
+        port: 0,
+        host: "127.0.0.1",
+        path: "/mcp",
+        sessionMode: "stateful" as const,
+        idleTimeout: 10,
+      },
     );
     server = result.server;
     const res = await fetch(`http://127.0.0.1:${server.port}/mcp`, { method: "GET" });
@@ -82,7 +106,13 @@ describe("HTTP transport stateful mode", () => {
     const { McpServer } = await import("@modelcontextprotocol/sdk/server/mcp.js");
     const result = await startHttpTransport(
       () => new McpServer({ name: "test", version: "0.1.0" }),
-      { port: 0, host: "127.0.0.1", path: "/mcp", sessionMode: "stateful" as const, idleTimeout: 10 },
+      {
+        port: 0,
+        host: "127.0.0.1",
+        path: "/mcp",
+        sessionMode: "stateful" as const,
+        idleTimeout: 10,
+      },
     );
     server = result.server;
     const res = await fetch(`http://127.0.0.1:${server.port}/mcp`, {
@@ -101,7 +131,13 @@ describe("HTTP transport stateful mode", () => {
         const s = new McpServer({ name: "test", version: "0.1.0" });
         return s;
       },
-      { port: 0, host: "127.0.0.1", path: "/mcp", sessionMode: "stateful" as const, idleTimeout: 10 },
+      {
+        port: 0,
+        host: "127.0.0.1",
+        path: "/mcp",
+        sessionMode: "stateful" as const,
+        idleTimeout: 10,
+      },
     );
     server = result.server;
     const res = await fetch(`http://127.0.0.1:${server.port}/mcp`, {

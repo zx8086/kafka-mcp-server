@@ -1,5 +1,5 @@
 // src/transport/index.ts
 export { createTransport, resolveTransportMode, type TransportResult } from "./factory.ts";
-export { startHttpTransport, type HttpTransportResult } from "./http.ts";
-export { startStdioTransport, type StdioTransportResult } from "./stdio.ts";
+export { type HttpTransportResult, startHttpTransport } from "./http.ts";
 export { withApiKeyAuth, withOriginValidation } from "./middleware.ts";
+export { type StdioTransportResult, startStdioTransport } from "./stdio.ts";

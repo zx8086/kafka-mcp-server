@@ -1,6 +1,5 @@
-import { describe, expect, test, afterEach } from "bun:test";
-import { resetConfigCache } from "../config.ts";
-import { getConfig } from "../config.ts";
+import { afterEach, describe, expect, test } from "bun:test";
+import { getConfig, resetConfigCache } from "../config.ts";
 
 describe("transport config", () => {
   afterEach(() => {

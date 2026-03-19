@@ -47,10 +47,15 @@ src/
     schema/     8 Schema Registry tools (gated by SCHEMA_REGISTRY_ENABLED)
     ksql/       7 ksqlDB tools (gated by KSQL_ENABLED)
     shared/     Shared parameter definitions
+  transport/    Transport abstraction layer
+    stdio.ts    StdioServerTransport lifecycle
+    http.ts     Bun.serve() + WebStandardStreamableHTTPServerTransport
+    middleware.ts HOF security wrappers (withOriginValidation, withApiKeyAuth)
+    factory.ts  Transport selection based on MCP_TRANSPORT
   lib/          Error handling, response builder
   logging/      Pino logger with ECS formatting, singleton container
   telemetry/    OpenTelemetry init, tracing decorator
-  index.ts      Entry point: config -> logger -> telemetry -> provider -> services -> tools -> stdio
+  index.ts      Entry point: config -> logger -> telemetry -> provider -> services -> serverFactory -> transport
 ```
 
 ## Configuration
@@ -84,6 +89,25 @@ Factory in `src/providers/factory.ts` selects by `KAFKA_PROVIDER` env var.
 **ksqlDB** (7, requires `KSQL_ENABLED=true`): `ksql_get_server_info`, `ksql_list_streams`, `ksql_list_tables`, `ksql_list_queries`, `ksql_describe`, `ksql_run_query`, `ksql_execute_statement` (write)
 
 Permission gates checked in `src/tools/wrap.ts` via `wrapHandler()` before any handler executes. Feature gates (Schema Registry, ksqlDB) are checked before permission gates (write, destructive).
+
+## Transport
+
+Env var `MCP_TRANSPORT` selects transport mode: `stdio` (default), `http`, or `both`.
+
+HTTP mode uses `Bun.serve()` with `WebStandardStreamableHTTPServerTransport` from the MCP SDK. Session mode (`MCP_SESSION_MODE`) can be `stateless` (per-request server) or `stateful` (session-reused server).
+
+Security: `MCP_API_KEY` enables Bearer token auth. `MCP_ALLOWED_ORIGINS` restricts cross-origin requests.
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `MCP_TRANSPORT` | `stdio` | Transport mode: stdio, http, both |
+| `MCP_PORT` | `3000` | HTTP server port |
+| `MCP_HOST` | `127.0.0.1` | HTTP bind address |
+| `MCP_PATH` | `/mcp` | MCP endpoint path |
+| `MCP_SESSION_MODE` | `stateless` | Session mode: stateless, stateful |
+| `MCP_API_KEY` | (none) | Bearer token for HTTP auth |
+| `MCP_ALLOWED_ORIGINS` | (none) | Comma-separated allowed origins |
+| `MCP_IDLE_TIMEOUT` | `120` | Bun.serve() idle timeout (seconds) |
 
 ## Testing
 

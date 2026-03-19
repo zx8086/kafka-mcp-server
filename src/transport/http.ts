@@ -72,8 +72,9 @@ function createStatefulHandlers(serverFactory: ServerFactory) {
     const sessionId = req.headers.get("mcp-session-id");
 
     // Existing session: delegate to its transport
-    if (sessionId && sessions.has(sessionId)) {
-      return sessions.get(sessionId)!.transport.handleRequest(req);
+    const existingSession = sessionId ? sessions.get(sessionId) : undefined;
+    if (existingSession) {
+      return existingSession.transport.handleRequest(req);
     }
 
     // New session: create transport and server
@@ -105,18 +106,19 @@ function createStatefulHandlers(serverFactory: ServerFactory) {
 
   async function handleGet(req: Request): Promise<Response> {
     const sessionId = req.headers.get("mcp-session-id");
-    if (!sessionId || !sessions.has(sessionId)) {
+    const session = sessionId ? sessions.get(sessionId) : undefined;
+    if (!session) {
       return badRequest("Bad request: no valid session");
     }
-    return sessions.get(sessionId)!.transport.handleRequest(req);
+    return session.transport.handleRequest(req);
   }
 
   async function handleDelete(req: Request): Promise<Response> {
     const sessionId = req.headers.get("mcp-session-id");
-    if (!sessionId || !sessions.has(sessionId)) {
+    const session = sessionId ? sessions.get(sessionId) : undefined;
+    if (!session || !sessionId) {
       return badRequest("Bad request: no valid session");
     }
-    const session = sessions.get(sessionId)!;
     await session.transport.close();
     await session.server.close();
     sessions.delete(sessionId);
