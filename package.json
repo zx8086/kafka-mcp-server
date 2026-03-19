@@ -20,11 +20,12 @@
     "README.md"
   ],
   "scripts": {
-    "build": "bun build ./src/index.ts --outdir ./dist --target bun --minify --sourcemap=external",
-    "build:dev": "bun build ./src/index.ts --outdir ./dist --target bun --sourcemap=inline",
+    "build": "bun build ./src/index.ts --outdir ./dist --target bun --minify --sourcemap=external --external @platformatic/kafka --external @platformatic/wasm-utils",
+    "build:dev": "bun build ./src/index.ts --outdir ./dist --target bun --sourcemap=inline --external @platformatic/kafka --external @platformatic/wasm-utils",
     "start": "bun run dist/index.js",
-    "inspector": "bunx --bun @modelcontextprotocol/inspector bun ./dist/index.js",
-    "build:inspector": "bun run build && bun run inspector",
+    "inspector": "bunx --bun @modelcontextprotocol/inspector bun ./src/index.ts",
+    "inspector:dist": "bunx --bun @modelcontextprotocol/inspector bun ./dist/index.js",
+    "build:inspector": "bun run build && bun run inspector:dist",
     "dev": "bun run src/index.ts",
     "dev:hot": "bun --hot run src/index.ts",
     "test": "bun test",
