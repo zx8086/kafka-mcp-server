@@ -14,9 +14,37 @@ const WRITE_TOOLS = new Set([
   "kafka_produce_message",
   "kafka_create_topic",
   "kafka_alter_topic_config",
+  "kafka_register_schema",
+  "kafka_set_schema_config",
+  "ksql_execute_statement",
 ]);
 
-const DESTRUCTIVE_TOOLS = new Set(["kafka_delete_topic", "kafka_reset_consumer_group_offsets"]);
+const DESTRUCTIVE_TOOLS = new Set([
+  "kafka_delete_topic",
+  "kafka_reset_consumer_group_offsets",
+  "kafka_delete_schema_subject",
+]);
+
+const SCHEMA_REGISTRY_TOOLS = new Set([
+  "kafka_list_schemas",
+  "kafka_get_schema",
+  "kafka_get_schema_versions",
+  "kafka_register_schema",
+  "kafka_check_compatibility",
+  "kafka_get_schema_config",
+  "kafka_set_schema_config",
+  "kafka_delete_schema_subject",
+]);
+
+const KSQL_TOOLS = new Set([
+  "ksql_get_server_info",
+  "ksql_list_streams",
+  "ksql_list_tables",
+  "ksql_list_queries",
+  "ksql_describe",
+  "ksql_run_query",
+  "ksql_execute_statement",
+]);
 
 export function wrapHandler<T>(
   toolName: string,
@@ -25,6 +53,18 @@ export function wrapHandler<T>(
 ): (args: T) => Promise<ToolResponse> {
   return async (args: T) => {
     const logger = getLogger();
+
+    if (SCHEMA_REGISTRY_TOOLS.has(toolName) && !config.schemaRegistry.enabled) {
+      return ResponseBuilder.error(
+        "Schema Registry is not enabled. Set SCHEMA_REGISTRY_ENABLED=true and SCHEMA_REGISTRY_URL to enable.",
+      );
+    }
+
+    if (KSQL_TOOLS.has(toolName) && !config.ksql.enabled) {
+      return ResponseBuilder.error(
+        "ksqlDB is not enabled. Set KSQL_ENABLED=true and KSQL_ENDPOINT to enable.",
+      );
+    }
 
     if (WRITE_TOOLS.has(toolName) && !config.kafka.allowWrites) {
       return ResponseBuilder.error(

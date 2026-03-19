@@ -8,8 +8,10 @@ import { createLogger } from "./logging/create-logger.ts";
 import { createProvider } from "./providers/factory.ts";
 import { KafkaClientManager } from "./services/client-manager.ts";
 import { KafkaService } from "./services/kafka-service.ts";
+import { KsqlService } from "./services/ksql-service.ts";
+import { SchemaRegistryService } from "./services/schema-registry-service.ts";
 import { initTelemetry, shutdownTelemetry } from "./telemetry/telemetry.ts";
-import { registerAllTools } from "./tools/index.ts";
+import { registerAllTools, type ToolRegistrationOptions } from "./tools/index.ts";
 
 async function main(): Promise<void> {
   // 1. Load config
@@ -42,22 +44,37 @@ async function main(): Promise<void> {
   const clientManager = new KafkaClientManager(provider);
   const kafkaService = new KafkaService(clientManager);
 
-  // 6. Create MCP server
+  // 6. Create optional services
+  const toolOptions: ToolRegistrationOptions = {};
+
+  if (config.schemaRegistry.enabled) {
+    toolOptions.schemaRegistryService = new SchemaRegistryService(config);
+    logger.info("Schema Registry enabled", { url: config.schemaRegistry.url });
+  }
+
+  if (config.ksql.enabled) {
+    toolOptions.ksqlService = new KsqlService(config);
+    logger.info("ksqlDB enabled", { endpoint: config.ksql.endpoint });
+  }
+
+  // 7. Create MCP server
   const server = new McpServer({
     name: "kafka-mcp-server",
     version: "1.0.0",
   });
 
-  // 7. Register all tools (with universal wrapping)
-  registerAllTools(server, kafkaService, config);
-  logger.info("All tools registered");
+  // 8. Register all tools (with universal wrapping)
+  registerAllTools(server, kafkaService, config, toolOptions);
 
-  // 8. Connect stdio transport
+  const toolCount = 15 + (config.schemaRegistry.enabled ? 8 : 0) + (config.ksql.enabled ? 7 : 0);
+  logger.info(`All tools registered (${toolCount} tools)`);
+
+  // 9. Connect stdio transport
   const transport = new StdioServerTransport();
   await server.connect(transport);
   logger.info("MCP server connected via stdio");
 
-  // 9. Graceful shutdown
+  // 10. Graceful shutdown
   const shutdown = async (signal: string) => {
     logger.info(`Received ${signal}, shutting down...`);
 

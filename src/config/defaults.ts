@@ -24,6 +24,18 @@ export const defaults = {
   local: {
     bootstrapServers: "localhost:9092",
   },
+  schemaRegistry: {
+    enabled: false,
+    url: "http://localhost:8081",
+    apiKey: "",
+    apiSecret: "",
+  },
+  ksql: {
+    enabled: false,
+    endpoint: "http://localhost:8088",
+    apiKey: "",
+    apiSecret: "",
+  },
   logging: {
     level: "info" as const,
     backend: "pino" as const,

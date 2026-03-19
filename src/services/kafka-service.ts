@@ -10,7 +10,6 @@ import {
 import type { KafkaClientManager } from "./client-manager.ts";
 
 // @platformatic/kafka doesn't support partitionIndex=-1 (all partitions) in listOffsets.
-// Resolve partition indices from topic metadata first.
 async function getPartitionIndices(admin: Admin, topicName: string): Promise<number[]> {
   const metadata = await new Promise<{
     topics: Map<string, { partitions: Record<number, unknown> }>;
@@ -31,6 +30,33 @@ async function getPartitionIndices(admin: Admin, topicName: string): Promise<num
   const topicMeta = metadata.topics.get(topicName);
   if (!topicMeta) return [0];
   return Object.keys(topicMeta.partitions).map(Number);
+}
+
+async function getClusterMetadata(admin: Admin): Promise<{
+  brokers: Map<number, { host: string; port: number; rack?: string }>;
+  controllerId: number;
+  topics: Map<string, { partitions: Record<number, unknown> }>;
+}> {
+  return new Promise((resolve, reject) => {
+    (
+      admin as unknown as {
+        metadata: (
+          opts: { topics?: string[] },
+          cb: (err: Error | null, data: unknown) => void,
+        ) => void;
+      }
+    ).metadata({}, (err, data) =>
+      err
+        ? reject(err)
+        : resolve(
+            data as {
+              brokers: Map<number, { host: string; port: number; rack?: string }>;
+              controllerId: number;
+              topics: Map<string, { partitions: Record<number, unknown> }>;
+            },
+          ),
+    );
+  });
 }
 
 export interface ConsumeMessagesOptions {
@@ -286,6 +312,172 @@ export class KafkaService {
       topics,
       ...providerMetadata,
     };
+  }
+
+  async getConsumerGroupLag(groupId: string): Promise<{
+    groupId: string;
+    topics: Array<{
+      topic: string;
+      partitions: Array<{
+        partition: number;
+        committedOffset: string;
+        latestOffset: string;
+        lag: string;
+      }>;
+      totalLag: string;
+    }>;
+    totalLag: string;
+  }> {
+    return this.clientManager.withAdmin(async (admin) => {
+      const offsetGroups = await admin.listConsumerGroupOffsets({ groups: [groupId] });
+      const offsetGroup = offsetGroups.find((g) => g.groupId === groupId);
+
+      if (!offsetGroup || offsetGroup.topics.length === 0) {
+        return { groupId, topics: [], totalLag: "0" };
+      }
+
+      let grandTotalLag = BigInt(0);
+      const topicResults: Array<{
+        topic: string;
+        partitions: Array<{
+          partition: number;
+          committedOffset: string;
+          latestOffset: string;
+          lag: string;
+        }>;
+        totalLag: string;
+      }> = [];
+
+      for (const topic of offsetGroup.topics) {
+        const latestOffsets = await admin.listOffsets({
+          topics: [
+            {
+              name: topic.name,
+              partitions: topic.partitions.map((p) => ({
+                partitionIndex: p.partitionIndex,
+                timestamp: ListOffsetTimestamps.LATEST,
+              })),
+            },
+          ],
+        });
+
+        const latestTopic = latestOffsets.find((t) => t.name === topic.name);
+        let topicTotalLag = BigInt(0);
+
+        const partitionResults = topic.partitions.map((p) => {
+          const latestPartition = latestTopic?.partitions.find(
+            (lp) => lp.partitionIndex === p.partitionIndex,
+          );
+          const committed = p.committedOffset;
+          const latest = latestPartition?.offset ?? BigInt(0);
+          const lag = committed >= BigInt(0) && latest > committed ? latest - committed : BigInt(0);
+          topicTotalLag += lag;
+
+          return {
+            partition: p.partitionIndex,
+            committedOffset: committed.toString(),
+            latestOffset: latest.toString(),
+            lag: lag.toString(),
+          };
+        });
+
+        grandTotalLag += topicTotalLag;
+        topicResults.push({
+          topic: topic.name,
+          partitions: partitionResults,
+          totalLag: topicTotalLag.toString(),
+        });
+      }
+
+      return {
+        groupId,
+        topics: topicResults,
+        totalLag: grandTotalLag.toString(),
+      };
+    });
+  }
+
+  async describeCluster(): Promise<{
+    brokers: Array<{
+      id: number;
+      host: string;
+      port: number;
+      rack?: string;
+      isController: boolean;
+    }>;
+    controllerId: number;
+    brokerCount: number;
+    topicCount: number;
+    provider: string;
+  }> {
+    const provider = this.clientManager.getProvider();
+
+    return this.clientManager.withAdmin(async (admin) => {
+      const metadata = await getClusterMetadata(admin);
+
+      const brokers = Array.from(metadata.brokers.entries()).map(([id, info]) => ({
+        id,
+        host: info.host,
+        port: info.port,
+        rack: info.rack,
+        isController: id === metadata.controllerId,
+      }));
+
+      return {
+        brokers,
+        controllerId: metadata.controllerId,
+        brokerCount: brokers.length,
+        topicCount: metadata.topics.size,
+        provider: provider.type,
+      };
+    });
+  }
+
+  async getMessageByOffset(
+    topic: string,
+    partition: number,
+    offset: number,
+  ): Promise<{
+    topic: string;
+    partition: number;
+    offset: string;
+    key: string | null;
+    value: string | null;
+    timestamp: string;
+    headers: Record<string, string>;
+  } | null> {
+    const groupId = `mcp-seek-${crypto.randomUUID()}`;
+    const consumer = await this.clientManager.createConsumer(groupId);
+
+    try {
+      const stream = await consumer.consume({
+        topics: [topic],
+        offsets: [{ topic, partition, offset: BigInt(offset) }],
+        mode: "manual",
+        autocommit: false,
+        maxFetches: 1,
+      });
+
+      const deadline = Date.now() + 15_000;
+
+      for await (const msg of stream as AsyncIterable<Message<Buffer, Buffer, Buffer, Buffer>>) {
+        const formatted = formatMessage(msg);
+        if (msg.partition === partition && msg.offset === BigInt(offset)) {
+          await stream.close();
+          return formatted;
+        }
+        if (msg.offset > BigInt(offset) || Date.now() >= deadline) {
+          break;
+        }
+      }
+
+      await stream.close();
+      return null;
+    } finally {
+      if (!consumer.closed) {
+        await consumer.close().catch(() => {});
+      }
+    }
   }
 
   async produceMessage(

@@ -1,5 +1,24 @@
 # Kafka MCP Server
 
+## Critical Rules
+
+### Workflow
+- **NEVER commit** without explicit user authorization
+- **Team**: "Siobytes" | Commit format: `SIO-XX: message`
+- Linear Project: [Kafka MCP Server](https://linear.app/siobytes/project/kafka-mcp-server-fdd6c229b8a5)
+- **ALWAYS add Linear issues to the "Kafka MCP Server" project** when creating new issues
+
+### Linear Issue Management
+- **Assignee**: Always assign issues to "me" (Simon Owusu)
+- **Epic naming**: `Epic N: <Title>` (e.g., `Epic 1: Migrate AI Agent to LangGraph`)
+- **Sub-issue naming**: `<Phase>.<Order>: <Title>` (e.g., `1.1: Infrastructure Setup`, `2.3: Migrate index tools`)
+- **Phase grouping**:
+  - Phase 1.x: Foundation/Setup
+  - Phase 2.x: Core implementation
+  - Phase 3.x: Component implementation
+  - Phase 4.x: Assembly/Integration
+  - Phase 5.x: Testing/Cleanup
+
 ## Runtime
 
 Default to Bun instead of Node.js.
@@ -20,16 +39,18 @@ Layered design: config -> providers -> services -> tools
 src/
   config/       Env-driven config: mapping, defaults, Zod schemas, loader
   providers/    Kafka provider abstractions (local, msk, confluent)
-  services/     KafkaService (operations) + KafkaClientManager (lifecycle)
+  services/     KafkaService + SchemaRegistryService + KsqlService + KafkaClientManager
   tools/        MCP tool definitions by category
-    read/       7 read-only tools (always available)
+    read/       10 read-only tools (always available)
     write/      3 write tools (gated by KAFKA_ALLOW_WRITES)
     destructive/  2 destructive tools (gated by KAFKA_ALLOW_DESTRUCTIVE)
-    shared/     Shared utilities (wrap.ts for universal handler wrapping)
+    schema/     8 Schema Registry tools (gated by SCHEMA_REGISTRY_ENABLED)
+    ksql/       7 ksqlDB tools (gated by KSQL_ENABLED)
+    shared/     Shared parameter definitions
   lib/          Error handling, response builder
   logging/      Pino logger with ECS formatting, singleton container
   telemetry/    OpenTelemetry init, tracing decorator
-  index.ts      Entry point: config -> logger -> telemetry -> provider -> service -> tools -> stdio
+  index.ts      Entry point: config -> logger -> telemetry -> provider -> services -> tools -> stdio
 ```
 
 ## Configuration
@@ -50,15 +71,19 @@ Factory in `src/providers/factory.ts` selects by `KAFKA_PROVIDER` env var.
 
 ## Tools
 
-12 MCP tools in 3 categories:
+30 MCP tools in 5 categories:
 
-**Read** (7): `kafka_list_topics`, `kafka_describe_topic`, `kafka_get_topic_offsets`, `kafka_consume_messages`, `kafka_list_consumer_groups`, `kafka_describe_consumer_group`, `kafka_get_cluster_info`
+**Core Read** (10): `kafka_list_topics`, `kafka_describe_topic`, `kafka_get_topic_offsets`, `kafka_consume_messages`, `kafka_list_consumer_groups`, `kafka_describe_consumer_group`, `kafka_get_cluster_info`, `kafka_get_consumer_group_lag`, `kafka_describe_cluster`, `kafka_get_message_by_offset`
 
-**Write** (3): `kafka_produce_message`, `kafka_create_topic`, `kafka_alter_topic_config`
+**Core Write** (3): `kafka_produce_message`, `kafka_create_topic`, `kafka_alter_topic_config`
 
-**Destructive** (2): `kafka_delete_topic`, `kafka_reset_consumer_group_offsets`
+**Core Destructive** (2): `kafka_delete_topic`, `kafka_reset_consumer_group_offsets`
 
-Permission gates checked in `src/tools/wrap.ts` via `wrapHandler()` before any handler executes.
+**Schema Registry** (8, requires `SCHEMA_REGISTRY_ENABLED=true`): `kafka_list_schemas`, `kafka_get_schema`, `kafka_get_schema_versions`, `kafka_register_schema` (write), `kafka_check_compatibility`, `kafka_get_schema_config`, `kafka_set_schema_config` (write), `kafka_delete_schema_subject` (destructive)
+
+**ksqlDB** (7, requires `KSQL_ENABLED=true`): `ksql_get_server_info`, `ksql_list_streams`, `ksql_list_tables`, `ksql_list_queries`, `ksql_describe`, `ksql_run_query`, `ksql_execute_statement` (write)
+
+Permission gates checked in `src/tools/wrap.ts` via `wrapHandler()` before any handler executes. Feature gates (Schema Registry, ksqlDB) are checked before permission gates (write, destructive).
 
 ## Testing
 

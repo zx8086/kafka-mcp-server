@@ -37,6 +37,20 @@ export const localSchema = z.object({
   bootstrapServers: z.string().describe("Local Kafka bootstrap server endpoints"),
 });
 
+export const schemaRegistrySchema = z.object({
+  enabled: z.boolean().describe("Whether Schema Registry integration is enabled"),
+  url: z.string().describe("Schema Registry URL"),
+  apiKey: z.string().describe("Schema Registry API key (for Confluent Cloud or basic auth)"),
+  apiSecret: z.string().describe("Schema Registry API secret (for Confluent Cloud or basic auth)"),
+});
+
+export const ksqlSchema = z.object({
+  enabled: z.boolean().describe("Whether ksqlDB integration is enabled"),
+  endpoint: z.string().describe("ksqlDB REST API endpoint"),
+  apiKey: z.string().describe("ksqlDB API key (for Confluent Cloud or basic auth)"),
+  apiSecret: z.string().describe("ksqlDB API secret (for Confluent Cloud or basic auth)"),
+});
+
 export const loggingSchema = z.object({
   level: z.enum(["silent", "debug", "info", "warn", "error"]).describe("Log verbosity level"),
   backend: z.enum(["pino"]).describe("Logging backend to use"),
@@ -55,6 +69,8 @@ export const configSchema = z
     msk: mskSchema,
     confluent: confluentSchema,
     local: localSchema,
+    schemaRegistry: schemaRegistrySchema,
+    ksql: ksqlSchema,
     logging: loggingSchema,
     telemetry: telemetrySchema,
   })
@@ -91,6 +107,26 @@ export const configSchema = z
           code: z.ZodIssueCode.custom,
           path: ["confluent", "apiSecret"],
           message: "Confluent provider requires confluent.apiSecret to be set",
+        });
+      }
+    }
+
+    if (config.schemaRegistry.enabled) {
+      if (config.schemaRegistry.url.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["schemaRegistry", "url"],
+          message: "Schema Registry requires schemaRegistry.url to be set when enabled",
+        });
+      }
+    }
+
+    if (config.ksql.enabled) {
+      if (config.ksql.endpoint.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["ksql", "endpoint"],
+          message: "ksqlDB requires ksql.endpoint to be set when enabled",
         });
       }
     }

@@ -5,7 +5,13 @@ import { envMapping } from "./env-mapping.ts";
 import { toBool, toNumber } from "./helpers.ts";
 import { type AppConfig, configSchema } from "./schemas.ts";
 
-const booleanPaths = new Set(["kafka.allowWrites", "kafka.allowDestructive", "telemetry.enabled"]);
+const booleanPaths = new Set([
+  "kafka.allowWrites",
+  "kafka.allowDestructive",
+  "schemaRegistry.enabled",
+  "ksql.enabled",
+  "telemetry.enabled",
+]);
 
 const numberPaths = new Set(["kafka.consumeMaxMessages", "kafka.consumeTimeoutMs"]);
 
