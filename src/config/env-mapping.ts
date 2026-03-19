@@ -1,0 +1,25 @@
+// src/config/env-mapping.ts
+
+export const envMapping: Record<string, string> = {
+  KAFKA_PROVIDER: "kafka.provider",
+  KAFKA_CLIENT_ID: "kafka.clientId",
+  KAFKA_ALLOW_WRITES: "kafka.allowWrites",
+  KAFKA_ALLOW_DESTRUCTIVE: "kafka.allowDestructive",
+  KAFKA_CONSUME_MAX_MESSAGES: "kafka.consumeMaxMessages",
+  KAFKA_CONSUME_TIMEOUT_MS: "kafka.consumeTimeoutMs",
+  MSK_BOOTSTRAP_BROKERS: "msk.bootstrapBrokers",
+  MSK_CLUSTER_ARN: "msk.clusterArn",
+  AWS_REGION: "msk.region",
+  CONFLUENT_BOOTSTRAP_SERVERS: "confluent.bootstrapServers",
+  CONFLUENT_API_KEY: "confluent.apiKey",
+  CONFLUENT_API_SECRET: "confluent.apiSecret",
+  CONFLUENT_REST_ENDPOINT: "confluent.restEndpoint",
+  CONFLUENT_CLUSTER_ID: "confluent.clusterId",
+  LOCAL_BOOTSTRAP_SERVERS: "local.bootstrapServers",
+  LOG_LEVEL: "logging.level",
+  LOGGING_BACKEND: "logging.backend",
+  TELEMETRY_ENABLED: "telemetry.enabled",
+  TELEMETRY_SERVICE_NAME: "telemetry.serviceName",
+  TELEMETRY_MODE: "telemetry.mode",
+  OTEL_EXPORTER_OTLP_ENDPOINT: "telemetry.otlpEndpoint",
+};

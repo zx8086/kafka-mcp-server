@@ -1,0 +1,477 @@
+// src/services/kafka-service.ts
+import {
+  ConfigResourceTypes,
+  ListOffsetTimestamps,
+  type ListedOffsetsTopic,
+  type ConfigDescription,
+} from "@platformatic/kafka";
+import type { KafkaClientManager } from "./client-manager.ts";
+import type { Message } from "@platformatic/kafka";
+
+export interface ConsumeMessagesOptions {
+  topic: string;
+  maxMessages: number;
+  timeoutMs: number;
+  fromBeginning?: boolean;
+}
+
+export interface ProduceMessageInput {
+  key?: string;
+  value: string;
+  headers?: Record<string, string>;
+  partition?: number;
+}
+
+export interface CreateTopicInput {
+  name: string;
+  partitions?: number;
+  replicas?: number;
+  configs?: Record<string, string>;
+}
+
+export interface ResetOffsetsInput {
+  groupId: string;
+  topic: string;
+  strategy: "earliest" | "latest" | "timestamp";
+  timestamp?: number;
+}
+
+export class KafkaService {
+  constructor(private readonly clientManager: KafkaClientManager) {}
+
+  async listTopics(filter?: string): Promise<{ name: string }[]> {
+    const admin = await this.clientManager.getAdmin();
+    const topics = await admin.listTopics();
+
+    let filtered = topics;
+    if (filter) {
+      const regex = new RegExp(filter);
+      filtered = topics.filter((t) => regex.test(t));
+    }
+
+    return filtered.map((name) => ({ name }));
+  }
+
+  async describeTopic(
+    topicName: string
+  ): Promise<{
+    name: string;
+    offsets: ListedOffsetsTopic | null;
+    configs: ConfigDescription | null;
+  }> {
+    const admin = await this.clientManager.getAdmin();
+
+    const [offsets, configDescriptions] = await Promise.all([
+      admin
+        .listOffsets({
+          topics: [
+            {
+              name: topicName,
+              partitions: [
+                { partitionIndex: -1, timestamp: ListOffsetTimestamps.LATEST },
+              ],
+            },
+          ],
+        })
+        .catch(() => null),
+      admin
+        .describeConfigs({
+          resources: [
+            { resourceType: ConfigResourceTypes.TOPIC, resourceName: topicName },
+          ],
+        })
+        .catch(() => null),
+    ]);
+
+    const topicOffsets = offsets?.find((t) => t.name === topicName) ?? null;
+    const topicConfigs = configDescriptions?.[0] ?? null;
+
+    return {
+      name: topicName,
+      offsets: topicOffsets,
+      configs: topicConfigs,
+    };
+  }
+
+  async getTopicOffsets(
+    topicName: string,
+    timestamp?: number
+  ): Promise<ListedOffsetsTopic | null> {
+    const admin = await this.clientManager.getAdmin();
+    const ts =
+      timestamp !== undefined
+        ? BigInt(timestamp)
+        : ListOffsetTimestamps.LATEST;
+
+    const result = await admin.listOffsets({
+      topics: [
+        {
+          name: topicName,
+          partitions: [{ partitionIndex: -1, timestamp: ts }],
+        },
+      ],
+    });
+
+    return result.find((t) => t.name === topicName) ?? null;
+  }
+
+  async consumeMessages(
+    options: ConsumeMessagesOptions
+  ): Promise<
+    Array<{
+      topic: string;
+      partition: number;
+      offset: string;
+      key: string | null;
+      value: string | null;
+      timestamp: string;
+      headers: Record<string, string>;
+    }>
+  > {
+    const groupId = `mcp-consume-${crypto.randomUUID()}`;
+    const consumer = await this.clientManager.createConsumer(groupId);
+    const messages: Array<{
+      topic: string;
+      partition: number;
+      offset: string;
+      key: string | null;
+      value: string | null;
+      timestamp: string;
+      headers: Record<string, string>;
+    }> = [];
+
+    try {
+      const mode = options.fromBeginning ? "earliest" : "latest";
+      const stream = await consumer.consume({
+        topics: [options.topic],
+        mode,
+        autocommit: false,
+        maxFetches: 1,
+      });
+
+      const deadline = Date.now() + options.timeoutMs;
+
+      for await (const msg of stream as AsyncIterable<
+        Message<Buffer, Buffer, Buffer, Buffer>
+      >) {
+        messages.push(formatMessage(msg));
+
+        if (
+          messages.length >= options.maxMessages ||
+          Date.now() >= deadline
+        ) {
+          break;
+        }
+      }
+
+      await stream.close();
+    } finally {
+      if (!consumer.closed) {
+        await consumer.close().catch(() => {});
+      }
+    }
+
+    return messages;
+  }
+
+  async listConsumerGroups(
+    filter?: string,
+    states?: string[]
+  ): Promise<
+    Array<{ id: string; state: string; groupType: string; protocolType: string }>
+  > {
+    const admin = await this.clientManager.getAdmin();
+    const groupsMap = await admin.listGroups({
+      states: states as Parameters<typeof admin.listGroups>[0] extends infer T
+        ? T extends { states?: infer S }
+          ? S
+          : never
+        : never,
+    });
+
+    let groups = Array.from(groupsMap.values());
+
+    if (filter) {
+      const regex = new RegExp(filter);
+      groups = groups.filter((g) => regex.test(g.id));
+    }
+
+    return groups.map((g) => ({
+      id: g.id,
+      state: g.state,
+      groupType: g.groupType,
+      protocolType: g.protocolType,
+    }));
+  }
+
+  async describeConsumerGroup(
+    groupId: string
+  ): Promise<{
+    groupId: string;
+    state: string;
+    protocol: string;
+    members: Array<{
+      id: string;
+      clientId: string;
+      clientHost: string;
+    }>;
+    offsets: Array<{
+      topic: string;
+      partitions: Array<{
+        partition: number;
+        committedOffset: string;
+        lag?: string;
+      }>;
+    }>;
+  }> {
+    const admin = await this.clientManager.getAdmin();
+
+    const [groupsMap, offsetGroups] = await Promise.all([
+      admin.describeGroups({ groups: [groupId] }),
+      admin
+        .listConsumerGroupOffsets({ groups: [groupId] })
+        .catch(() => []),
+    ]);
+
+    const group = groupsMap.get(groupId);
+    if (!group) {
+      throw new Error(`Consumer group '${groupId}' not found`);
+    }
+
+    const members = Array.from(group.members.values()).map((m) => ({
+      id: m.id,
+      clientId: m.clientId,
+      clientHost: m.clientHost,
+    }));
+
+    const offsetGroup = offsetGroups.find((g) => g.groupId === groupId);
+    const offsets =
+      offsetGroup?.topics.map((t) => ({
+        topic: t.name,
+        partitions: t.partitions.map((p) => ({
+          partition: p.partitionIndex,
+          committedOffset: p.committedOffset.toString(),
+        })),
+      })) ?? [];
+
+    return {
+      groupId,
+      state: group.state,
+      protocol: group.protocol,
+      members,
+      offsets,
+    };
+  }
+
+  async getClusterInfo(): Promise<Record<string, unknown>> {
+    const admin = await this.clientManager.getAdmin();
+    const provider = this.clientManager.getProvider();
+
+    const [topics, providerMetadata] = await Promise.all([
+      admin.listTopics().catch(() => [] as string[]),
+      provider.getClusterMetadata?.().catch(() => ({})) ?? Promise.resolve({}),
+    ]);
+
+    return {
+      provider: provider.type,
+      providerName: provider.name,
+      topicCount: topics.length,
+      topics,
+      ...providerMetadata,
+    };
+  }
+
+  async produceMessage(
+    topic: string,
+    messages: ProduceMessageInput[],
+    acks?: number
+  ): Promise<{ offsets: Array<{ topic: string; partition: number; offset: string }> }> {
+    const producer = await this.clientManager.getProducer();
+
+    const kafkaMessages = messages.map((m) => ({
+      topic,
+      key: m.key ? Buffer.from(m.key) : undefined,
+      value: Buffer.from(m.value),
+      partition: m.partition,
+      headers: m.headers
+        ? new Map(
+            Object.entries(m.headers).map(([k, v]) => [
+              Buffer.from(k),
+              Buffer.from(v),
+            ])
+          )
+        : undefined,
+    }));
+
+    const result = await producer.send({
+      messages: kafkaMessages,
+      acks,
+    });
+
+    return {
+      offsets:
+        result.offsets?.map((o) => ({
+          topic: o.topic,
+          partition: o.partition,
+          offset: o.offset.toString(),
+        })) ?? [],
+    };
+  }
+
+  async createTopic(input: CreateTopicInput): Promise<{
+    name: string;
+    partitions: number;
+    replicas: number;
+  }> {
+    const admin = await this.clientManager.getAdmin();
+
+    const configs = input.configs
+      ? Object.entries(input.configs).map(([name, value]) => ({ name, value }))
+      : undefined;
+
+    const result = await admin.createTopics({
+      topics: [input.name],
+      partitions: input.partitions ?? 1,
+      replicas: input.replicas ?? 1,
+      configs,
+    });
+
+    const created = result[0];
+    return {
+      name: created?.name ?? input.name,
+      partitions: created?.partitions ?? input.partitions ?? 1,
+      replicas: created?.replicas ?? input.replicas ?? 1,
+    };
+  }
+
+  async alterTopicConfig(
+    topicName: string,
+    configs: Record<string, string>
+  ): Promise<{ topic: string; updatedConfigs: Record<string, string> }> {
+    const admin = await this.clientManager.getAdmin();
+
+    await admin.alterConfigs({
+      resources: [
+        {
+          resourceType: ConfigResourceTypes.TOPIC,
+          resourceName: topicName,
+          configs: Object.entries(configs).map(([name, value]) => ({
+            name,
+            value,
+          })),
+        },
+      ],
+    });
+
+    return { topic: topicName, updatedConfigs: configs };
+  }
+
+  async deleteTopic(topicName: string): Promise<{ deleted: string }> {
+    const admin = await this.clientManager.getAdmin();
+
+    // Verify topic exists
+    const topics = await admin.listTopics();
+    if (!topics.includes(topicName)) {
+      throw new Error(`Topic '${topicName}' does not exist`);
+    }
+
+    await admin.deleteTopics({ topics: [topicName] });
+    return { deleted: topicName };
+  }
+
+  async resetConsumerGroupOffsets(
+    input: ResetOffsetsInput
+  ): Promise<{ groupId: string; topic: string; strategy: string }> {
+    const admin = await this.clientManager.getAdmin();
+
+    // Verify group is empty
+    const groups = await admin.describeGroups({ groups: [input.groupId] });
+    const group = groups.get(input.groupId);
+    if (group && group.state !== "EMPTY") {
+      throw new Error(
+        `Consumer group '${input.groupId}' must be in EMPTY state to reset offsets (current: ${group.state})`
+      );
+    }
+
+    // Resolve target offsets
+    let targetTimestamp: bigint;
+    switch (input.strategy) {
+      case "earliest":
+        targetTimestamp = ListOffsetTimestamps.EARLIEST;
+        break;
+      case "latest":
+        targetTimestamp = ListOffsetTimestamps.LATEST;
+        break;
+      case "timestamp":
+        if (input.timestamp === undefined) {
+          throw new Error("Timestamp is required for 'timestamp' strategy");
+        }
+        targetTimestamp = BigInt(input.timestamp);
+        break;
+    }
+
+    const offsetsResult = await admin.listOffsets({
+      topics: [
+        {
+          name: input.topic,
+          partitions: [
+            { partitionIndex: -1, timestamp: targetTimestamp },
+          ],
+        },
+      ],
+    });
+
+    const topicOffsets = offsetsResult.find((t) => t.name === input.topic);
+    if (!topicOffsets) {
+      throw new Error(`No offsets found for topic '${input.topic}'`);
+    }
+
+    await admin.alterConsumerGroupOffsets({
+      groupId: input.groupId,
+      topics: [
+        {
+          name: input.topic,
+          partitionOffsets: topicOffsets.partitions.map((p) => ({
+            partition: p.partitionIndex,
+            offset: p.offset,
+          })),
+        },
+      ],
+    });
+
+    return {
+      groupId: input.groupId,
+      topic: input.topic,
+      strategy: input.strategy,
+    };
+  }
+}
+
+function formatMessage(
+  msg: Message<Buffer, Buffer, Buffer, Buffer>
+): {
+  topic: string;
+  partition: number;
+  offset: string;
+  key: string | null;
+  value: string | null;
+  timestamp: string;
+  headers: Record<string, string>;
+} {
+  const headers: Record<string, string> = {};
+  if (msg.headers) {
+    for (const [k, v] of msg.headers) {
+      headers[k?.toString() ?? ""] = v?.toString() ?? "";
+    }
+  }
+
+  return {
+    topic: msg.topic,
+    partition: msg.partition,
+    offset: msg.offset.toString(),
+    key: msg.key?.toString() ?? null,
+    value: msg.value?.toString() ?? null,
+    timestamp: msg.timestamp.toString(),
+    headers,
+  };
+}

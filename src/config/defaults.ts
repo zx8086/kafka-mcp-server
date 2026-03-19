@@ -1,0 +1,37 @@
+// src/config/defaults.ts
+
+export const defaults = {
+  kafka: {
+    provider: "local" as const,
+    clientId: "kafka-mcp-server",
+    allowWrites: false,
+    allowDestructive: false,
+    consumeMaxMessages: 50,
+    consumeTimeoutMs: 30000,
+  },
+  msk: {
+    bootstrapBrokers: "",
+    clusterArn: "",
+    region: "eu-west-1",
+  },
+  confluent: {
+    bootstrapServers: "",
+    apiKey: "",
+    apiSecret: "",
+    restEndpoint: "",
+    clusterId: "",
+  },
+  local: {
+    bootstrapServers: "localhost:9092",
+  },
+  logging: {
+    level: "info" as const,
+    backend: "pino" as const,
+  },
+  telemetry: {
+    enabled: false,
+    serviceName: "kafka-mcp-server",
+    mode: "console" as const,
+    otlpEndpoint: "http://localhost:4318",
+  },
+} as const satisfies Record<string, Record<string, unknown>>;
