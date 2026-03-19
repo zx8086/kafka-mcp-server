@@ -13,7 +13,12 @@ const booleanPaths = new Set([
   "telemetry.enabled",
 ]);
 
-const numberPaths = new Set(["kafka.consumeMaxMessages", "kafka.consumeTimeoutMs"]);
+const numberPaths = new Set([
+  "kafka.consumeMaxMessages",
+  "kafka.consumeTimeoutMs",
+  "transport.port",
+  "transport.idleTimeout",
+]);
 
 function setNested(
   obj: Record<string, Record<string, unknown>>,

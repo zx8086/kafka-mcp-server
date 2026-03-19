@@ -63,6 +63,17 @@ export const telemetrySchema = z.object({
   otlpEndpoint: z.string().url().describe("OTLP HTTP exporter endpoint"),
 });
 
+export const transportSchema = z.object({
+  mode: z.enum(["stdio", "http", "both"]).describe("Transport mode"),
+  port: z.number().int().min(1024).max(65535).describe("HTTP server port"),
+  host: z.string().describe("HTTP server bind address"),
+  path: z.string().startsWith("/").describe("MCP endpoint path"),
+  sessionMode: z.enum(["stateless", "stateful"]).describe("HTTP session mode"),
+  apiKey: z.string().describe("Optional API key for Bearer token auth"),
+  allowedOrigins: z.string().describe("Comma-separated allowed origins"),
+  idleTimeout: z.number().int().min(10).max(255).describe("Bun.serve() idle timeout in seconds"),
+});
+
 export const configSchema = z
   .object({
     kafka: kafkaSchema,
@@ -73,6 +84,7 @@ export const configSchema = z
     ksql: ksqlSchema,
     logging: loggingSchema,
     telemetry: telemetrySchema,
+    transport: transportSchema,
   })
   .superRefine((config, ctx) => {
     if (config.kafka.provider === "msk") {

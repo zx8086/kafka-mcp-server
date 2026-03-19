@@ -46,6 +46,16 @@ function makeConfig(overrides: Partial<{
       mode: "console",
       otlpEndpoint: "http://localhost:4318",
     },
+    transport: {
+      mode: "stdio",
+      port: 3000,
+      host: "127.0.0.1",
+      path: "/mcp",
+      sessionMode: "stateless",
+      apiKey: "",
+      allowedOrigins: "",
+      idleTimeout: 120,
+    },
   };
 }
 
