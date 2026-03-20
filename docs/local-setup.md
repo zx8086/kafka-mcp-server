@@ -9,13 +9,24 @@ Get the Kafka MCP Server running against a local Kafka broker in under 5 minutes
 
 ## Option A: DevContainer (recommended)
 
-The project includes a DevContainer that starts Kafka automatically.
+The project includes a DevContainer that starts the full Kafka ecosystem automatically.
 
 1. Open the project in VS Code (or any DevContainer-compatible editor)
 2. When prompted, click **Reopen in Container**
-3. Kafka starts in KRaft mode on port 9092, with the Kafka UI on port 8080
+3. All services start automatically:
 
-The DevContainer pre-configures the environment with writes and destructive ops enabled and debug logging.
+| Service | Port | URL |
+|---|---|---|
+| Kafka (KRaft) | 9092 | `localhost:9092` |
+| Schema Registry | 8081 | `http://localhost:8081` |
+| ksqlDB | 8088 | `http://localhost:8088` |
+| Kafka UI | 8080 | `http://localhost:8080` |
+| Flink Web UI | 18081 | `http://localhost:18081` |
+| Flink SQL Gateway | 8083 | `http://localhost:8083` |
+
+The DevContainer pre-configures the environment with all MCP features enabled (Schema Registry, ksqlDB, writes, destructive ops) and debug logging. All 30 MCP tools work out of the box.
+
+Apache Flink (jobmanager, taskmanager, SQL gateway) is included for stream processing experimentation but has no MCP integration -- it is infrastructure only.
 
 ## Option B: Bring your own Kafka
 

@@ -155,7 +155,7 @@ Add to `claude_desktop_config.json`:
   "mcpServers": {
     "kafka": {
       "command": "bun",
-      "args": ["run", "/absolute/path/to/kafka-mcp-server/dist/index.js"],
+      "args": ["/absolute/path/to/kafka-mcp-server/src/index.ts"],
       "env": {
         "KAFKA_PROVIDER": "msk",
         "MSK_BOOTSTRAP_BROKERS": "b-1.mycluster.abc123.c4.kafka.eu-west-1.amazonaws.com:9098",
@@ -176,7 +176,7 @@ Add to `.claude/settings.json`:
   "mcpServers": {
     "kafka": {
       "command": "bun",
-      "args": ["run", "/absolute/path/to/kafka-mcp-server/dist/index.js"],
+      "args": ["/absolute/path/to/kafka-mcp-server/src/index.ts"],
       "env": {
         "KAFKA_PROVIDER": "msk",
         "MSK_BOOTSTRAP_BROKERS": "b-1.mycluster.abc123.c4.kafka.eu-west-1.amazonaws.com:9098",
@@ -187,8 +187,6 @@ Add to `.claude/settings.json`:
   }
 }
 ```
-
-Build first with `bun run build`.
 
 ## Full .env example for AWS MSK
 
@@ -250,6 +248,25 @@ For write operations, add `kafka-cluster:WriteData`, `kafka-cluster:CreateTopic`
 
 For destructive operations, add `kafka-cluster:DeleteTopic`, `kafka-cluster:AlterGroup`.
 
+## Network connectivity (VPC)
+
+MSK brokers run inside a VPC. The AWS SDK calls (`kafka_get_cluster_info` via `DescribeClusterV2`) use the public AWS API and work from anywhere, but Kafka protocol operations (listing topics, consuming messages, producing) require direct TCP connectivity to the bootstrap brokers on port 9098.
+
+If you run the MCP server outside the VPC (e.g. on your laptop), Kafka protocol calls will fail with connection timeouts while `kafka_get_cluster_info` continues to work. This is expected -- the provider abstraction separates the two paths cleanly.
+
+### Connectivity options
+
+| Option | Best for | Notes |
+|--------|----------|-------|
+| **AWS Client VPN** | Local development | Connect your machine to the VPC via OpenVPN. Full broker access once connected. |
+| **SSH tunnel / bastion host** | Quick testing | Forward port 9098 through an EC2 bastion in the VPC: `ssh -L 9098:broker-host:9098 ec2-user@bastion`. Update `MSK_BOOTSTRAP_BROKERS` to `localhost:9098`. |
+| **EC2 / Fargate in the same VPC** | Production | Run the MCP server on compute within the VPC. No tunneling needed. |
+| **MSK public access** | Provisioned clusters only | Enable public endpoints in MSK Console. Not available for MSK Serverless. |
+
+### MSK Serverless
+
+MSK Serverless clusters are VPC-only -- there is no public access option. You must use one of the first three connectivity options above. The bootstrap endpoint (port 9098) is only reachable from subnets associated with the serverless cluster's VPC configuration.
+
 ## Troubleshooting
 
 **"Failed to generate MSK IAM token"**
@@ -261,9 +278,10 @@ For destructive operations, add `kafka-cluster:DeleteTopic`, `kafka-cluster:Alte
 - The cluster ARN is wrong or the cluster has no IAM-enabled endpoints
 - Check MSK Console > Cluster > Properties > Security settings to confirm IAM auth is enabled
 
-**Connection timeout**
+**Connection timeout / retries exhausted**
+- If `kafka_get_cluster_info` works but topic/consumer operations fail, you are outside the VPC. See [Network connectivity (VPC)](#network-connectivity-vpc) above.
 - Ensure port 9098 (IAM auth) is open in your security groups
-- If connecting from outside the VPC, you need public access enabled and the public IAM SASL endpoint
+- If connecting from outside the VPC, you need public access enabled (provisioned clusters) or a VPN/tunnel (serverless)
 - Check that the VPC security group allows inbound on port 9098 from your IP
 
 **"Access denied" on topic operations**

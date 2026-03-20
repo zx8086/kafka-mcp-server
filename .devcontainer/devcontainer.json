@@ -9,6 +9,10 @@
     "LOCAL_BOOTSTRAP_SERVERS": "localhost:9092",
     "KAFKA_ALLOW_WRITES": "true",
     "KAFKA_ALLOW_DESTRUCTIVE": "true",
-    "LOG_LEVEL": "debug"
+    "LOG_LEVEL": "debug",
+    "SCHEMA_REGISTRY_ENABLED": "true",
+    "SCHEMA_REGISTRY_URL": "http://localhost:8081",
+    "KSQL_ENABLED": "true",
+    "KSQL_ENDPOINT": "http://localhost:8088"
   }
 }
