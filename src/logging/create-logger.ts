@@ -1,6 +1,7 @@
 // src/logging/create-logger.ts
 
 import ecsFormat from "@elastic/ecs-pino-format";
+import { trace } from "@opentelemetry/api";
 import pino from "pino";
 import type { ILogger } from "./ports/logger.port.ts";
 
@@ -40,9 +41,9 @@ function wrapPino(instance: pino.Logger): ILogger {
 }
 
 export function createLogger(options?: CreateLoggerOptions): ILogger {
-  const level = options?.level ?? Bun.env.LOG_LEVEL ?? "info";
+  const level = options?.level ?? "info";
   const name = options?.name ?? "kafka-mcp-server";
-  const isDev = options?.isDev ?? Bun.env.NODE_ENV === "development";
+  const isDev = options?.isDev ?? false;
 
   if (isDev) {
     let transport: pino.TransportSingleOptions | undefined;
@@ -65,13 +66,19 @@ export function createLogger(options?: CreateLoggerOptions): ILogger {
     return wrapPino(instance);
   }
 
-  // Production: ECS-compliant NDJSON to stderr
+  // Production: ECS-compliant NDJSON to stderr with trace correlation
   const ecsOptions = ecsFormat();
   const instance = pino(
     {
       ...ecsOptions,
       level,
       name,
+      mixin() {
+        const span = trace.getActiveSpan();
+        if (!span) return {};
+        const { traceId, spanId } = span.spanContext();
+        return { "trace.id": traceId, "span.id": spanId };
+      },
     },
     pino.destination({ dest: 2, sync: false }),
   );

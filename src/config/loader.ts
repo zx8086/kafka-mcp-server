@@ -40,7 +40,7 @@ export function loadConfig(): AppConfig {
   }
 
   for (const [envVar, dotPath] of Object.entries(envMapping)) {
-    const raw = process.env[envVar];
+    const raw = Bun.env[envVar];
     if (raw === undefined) continue;
 
     if (booleanPaths.has(dotPath)) {

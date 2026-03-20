@@ -1,5 +1,5 @@
 // tests/tools/wrap.test.ts
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import type { AppConfig } from "../../src/config/schemas.ts";
 import { wrapHandler } from "../../src/tools/wrap.ts";
 
@@ -65,96 +65,63 @@ const successHandler = async () => ({
 
 describe("wrapHandler", () => {
   describe("feature gates", () => {
-    test("blocks schema registry tools when disabled", async () => {
-      const config = makeConfig({ schemaRegistryEnabled: false });
-      const handler = wrapHandler("kafka_list_schemas", config, successHandler);
+    test.each([
+      { tool: "kafka_list_schemas", config: { schemaRegistryEnabled: false }, error: "Schema Registry is not enabled" },
+      { tool: "ksql_list_streams", config: { ksqlEnabled: false }, error: "ksqlDB is not enabled" },
+    ])("blocks $tool when feature disabled", async ({ tool, config, error }) => {
+      const handler = wrapHandler(tool, makeConfig(config), successHandler);
       const result = await handler({});
       expect(result.isError).toBe(true);
-      expect(result.content[0]?.text).toContain("Schema Registry is not enabled");
+      expect(result.content[0]?.text).toContain(error);
     });
 
-    test("allows schema registry tools when enabled", async () => {
-      const config = makeConfig({ schemaRegistryEnabled: true });
-      const handler = wrapHandler("kafka_list_schemas", config, successHandler);
-      const result = await handler({});
-      expect(result.isError).toBeUndefined();
-    });
-
-    test("blocks ksql tools when disabled", async () => {
-      const config = makeConfig({ ksqlEnabled: false });
-      const handler = wrapHandler("ksql_list_streams", config, successHandler);
-      const result = await handler({});
-      expect(result.isError).toBe(true);
-      expect(result.content[0]?.text).toContain("ksqlDB is not enabled");
-    });
-
-    test("allows ksql tools when enabled", async () => {
-      const config = makeConfig({ ksqlEnabled: true });
-      const handler = wrapHandler("ksql_list_streams", config, successHandler);
+    test.each([
+      { tool: "kafka_list_schemas", config: { schemaRegistryEnabled: true } },
+      { tool: "ksql_list_streams", config: { ksqlEnabled: true } },
+    ])("allows $tool when feature enabled", async ({ tool, config }) => {
+      const handler = wrapHandler(tool, makeConfig(config), successHandler);
       const result = await handler({});
       expect(result.isError).toBeUndefined();
     });
   });
 
   describe("permission gates", () => {
-    test("blocks write tools when writes disabled", async () => {
-      const config = makeConfig({ allowWrites: false });
-      const handler = wrapHandler("kafka_produce_message", config, successHandler);
+    test.each([
+      { tool: "kafka_produce_message", config: { allowWrites: false }, error: "Write operations are disabled" },
+      { tool: "kafka_delete_topic", config: { allowDestructive: false }, error: "Destructive operations are disabled" },
+    ])("blocks $tool when permission disabled", async ({ tool, config, error }) => {
+      const handler = wrapHandler(tool, makeConfig(config), successHandler);
       const result = await handler({});
       expect(result.isError).toBe(true);
-      expect(result.content[0]?.text).toContain("Write operations are disabled");
+      expect(result.content[0]?.text).toContain(error);
     });
 
-    test("allows write tools when writes enabled", async () => {
-      const config = makeConfig({ allowWrites: true });
-      const handler = wrapHandler("kafka_produce_message", config, successHandler);
-      const result = await handler({});
-      expect(result.isError).toBeUndefined();
-    });
-
-    test("blocks destructive tools when destructive disabled", async () => {
-      const config = makeConfig({ allowDestructive: false });
-      const handler = wrapHandler("kafka_delete_topic", config, successHandler);
-      const result = await handler({});
-      expect(result.isError).toBe(true);
-      expect(result.content[0]?.text).toContain("Destructive operations are disabled");
-    });
-
-    test("allows destructive tools when destructive enabled", async () => {
-      const config = makeConfig({ allowDestructive: true });
-      const handler = wrapHandler("kafka_delete_topic", config, successHandler);
+    test.each([
+      { tool: "kafka_produce_message", config: { allowWrites: true } },
+      { tool: "kafka_delete_topic", config: { allowDestructive: true } },
+    ])("allows $tool when permission enabled", async ({ tool, config }) => {
+      const handler = wrapHandler(tool, makeConfig(config), successHandler);
       const result = await handler({});
       expect(result.isError).toBeUndefined();
     });
   });
 
   describe("schema registry write/destructive permission gates", () => {
-    test("blocks kafka_register_schema when schema enabled but writes disabled", async () => {
-      const config = makeConfig({ schemaRegistryEnabled: true, allowWrites: false });
-      const handler = wrapHandler("kafka_register_schema", config, successHandler);
+    test.each([
+      { tool: "kafka_register_schema", config: { schemaRegistryEnabled: true, allowWrites: false }, error: "Write operations are disabled" },
+      { tool: "kafka_delete_schema_subject", config: { schemaRegistryEnabled: true, allowDestructive: false }, error: "Destructive operations are disabled" },
+    ])("blocks $tool when feature enabled but permission disabled", async ({ tool, config, error }) => {
+      const handler = wrapHandler(tool, makeConfig(config), successHandler);
       const result = await handler({});
       expect(result.isError).toBe(true);
-      expect(result.content[0]?.text).toContain("Write operations are disabled");
+      expect(result.content[0]?.text).toContain(error);
     });
 
-    test("allows kafka_register_schema when schema enabled and writes enabled", async () => {
-      const config = makeConfig({ schemaRegistryEnabled: true, allowWrites: true });
-      const handler = wrapHandler("kafka_register_schema", config, successHandler);
-      const result = await handler({});
-      expect(result.isError).toBeUndefined();
-    });
-
-    test("blocks kafka_delete_schema_subject when destructive disabled", async () => {
-      const config = makeConfig({ schemaRegistryEnabled: true, allowDestructive: false });
-      const handler = wrapHandler("kafka_delete_schema_subject", config, successHandler);
-      const result = await handler({});
-      expect(result.isError).toBe(true);
-      expect(result.content[0]?.text).toContain("Destructive operations are disabled");
-    });
-
-    test("allows kafka_delete_schema_subject when both enabled", async () => {
-      const config = makeConfig({ schemaRegistryEnabled: true, allowDestructive: true });
-      const handler = wrapHandler("kafka_delete_schema_subject", config, successHandler);
+    test.each([
+      { tool: "kafka_register_schema", config: { schemaRegistryEnabled: true, allowWrites: true } },
+      { tool: "kafka_delete_schema_subject", config: { schemaRegistryEnabled: true, allowDestructive: true } },
+    ])("allows $tool when feature and permission enabled", async ({ tool, config }) => {
+      const handler = wrapHandler(tool, makeConfig(config), successHandler);
       const result = await handler({});
       expect(result.isError).toBeUndefined();
     });
@@ -178,34 +145,23 @@ describe("wrapHandler", () => {
   });
 
   describe("feature gate takes precedence over permission gate", () => {
-    test("schema registry feature gate fires before write gate", async () => {
-      const config = makeConfig({ schemaRegistryEnabled: false, allowWrites: false });
-      const handler = wrapHandler("kafka_register_schema", config, successHandler);
+    test.each([
+      { tool: "kafka_register_schema", config: { schemaRegistryEnabled: false, allowWrites: false }, error: "Schema Registry is not enabled" },
+      { tool: "ksql_execute_statement", config: { ksqlEnabled: false, allowWrites: false }, error: "ksqlDB is not enabled" },
+    ])("$tool feature gate fires before permission gate", async ({ tool, config, error }) => {
+      const handler = wrapHandler(tool, makeConfig(config), successHandler);
       const result = await handler({});
       expect(result.isError).toBe(true);
-      expect(result.content[0]?.text).toContain("Schema Registry is not enabled");
-    });
-
-    test("ksql feature gate fires before write gate", async () => {
-      const config = makeConfig({ ksqlEnabled: false, allowWrites: false });
-      const handler = wrapHandler("ksql_execute_statement", config, successHandler);
-      const result = await handler({});
-      expect(result.isError).toBe(true);
-      expect(result.content[0]?.text).toContain("ksqlDB is not enabled");
+      expect(result.content[0]?.text).toContain(error);
     });
   });
 
   describe("read tools pass through", () => {
-    test("kafka_list_topics always works", async () => {
-      const config = makeConfig({});
-      const handler = wrapHandler("kafka_list_topics", config, successHandler);
-      const result = await handler({});
-      expect(result.isError).toBeUndefined();
-    });
-
-    test("kafka_describe_cluster always works", async () => {
-      const config = makeConfig({});
-      const handler = wrapHandler("kafka_describe_cluster", config, successHandler);
+    test.each([
+      { tool: "kafka_list_topics" },
+      { tool: "kafka_describe_cluster" },
+    ])("$tool always works", async ({ tool }) => {
+      const handler = wrapHandler(tool, makeConfig({}), successHandler);
       const result = await handler({});
       expect(result.isError).toBeUndefined();
     });

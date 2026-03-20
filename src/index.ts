@@ -13,7 +13,7 @@ import { initTelemetry, shutdownTelemetry } from "./telemetry/telemetry.ts";
 import { registerAllTools, type ToolRegistrationOptions } from "./tools/index.ts";
 import { createTransport } from "./transport/factory.ts";
 
-async function main(): Promise<void> {
+export async function main(): Promise<void> {
   // 1. Load config
   const config = getConfig();
 
@@ -111,11 +111,13 @@ async function main(): Promise<void> {
   process.on("SIGTERM", () => shutdown("SIGTERM"));
 }
 
-main().catch((error) => {
-  const logger = getLogger();
-  logger.error("Fatal error starting server", {
-    error: error instanceof Error ? error.message : String(error),
+if (import.meta.main) {
+  main().catch((error) => {
+    const logger = getLogger();
+    logger.error("Fatal error starting server", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    logger.flush();
+    process.exit(1);
   });
-  logger.flush();
-  process.exit(1);
-});
+}
