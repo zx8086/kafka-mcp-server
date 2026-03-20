@@ -96,9 +96,46 @@ Test tools interactively:
 bun run build:inspector   # build + launch inspector
 ```
 
+## Transport modes
+
+The server supports two transport modes, controlled by `MCP_TRANSPORT`:
+
+- **stdio** (default) -- for CLI tools and desktop apps. The server is spawned as a child process.
+- **http** -- for remote access and multi-client scenarios. Runs a `Bun.serve()` HTTP server with the MCP Streamable HTTP protocol.
+- **both** -- runs stdio and HTTP simultaneously. Useful for development (Claude Code via stdio + MCP Inspector via HTTP).
+
+### HTTP mode
+
+Start the server with HTTP transport:
+
+```env
+MCP_TRANSPORT=http
+MCP_PORT=3000
+MCP_HOST=127.0.0.1
+MCP_PATH=/mcp
+```
+
+The server accepts MCP requests at `http://127.0.0.1:3000/mcp` using the Streamable HTTP protocol (POST for requests, GET for SSE streams in stateful mode, DELETE for session termination).
+
+#### Session modes
+
+- **stateless** (default) -- a fresh server instance is created per request. Suitable for most Kafka operations.
+- **stateful** -- sessions persist across requests, reusing Kafka connections. Set `MCP_SESSION_MODE=stateful`.
+
+#### Security
+
+For remote deployments, configure authentication and origin validation:
+
+```env
+MCP_API_KEY=your-secret-key           # requires Authorization: Bearer your-secret-key
+MCP_ALLOWED_ORIGINS=http://localhost:3001,https://app.example.com
+```
+
+The server binds to `127.0.0.1` by default. Set `MCP_HOST=0.0.0.0` to accept connections from other machines (combine with `MCP_API_KEY` for security).
+
 ## MCP client integration
 
-### Claude Desktop
+### Claude Desktop (stdio)
 
 Add to `claude_desktop_config.json`:
 
@@ -117,7 +154,21 @@ Add to `claude_desktop_config.json`:
 }
 ```
 
-### Claude Code
+### Claude Desktop (HTTP)
+
+Start the server with `MCP_TRANSPORT=http`, then add to `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "kafka": {
+      "url": "http://localhost:3000/mcp"
+    }
+  }
+}
+```
+
+### Claude Code (stdio)
 
 Add to `.claude/settings.json`:
 
@@ -130,6 +181,50 @@ Add to `.claude/settings.json`:
       "env": {
         "KAFKA_PROVIDER": "local",
         "LOCAL_BOOTSTRAP_SERVERS": "localhost:9092"
+      }
+    }
+  }
+}
+```
+
+### Claude Code (HTTP)
+
+Start the server with `MCP_TRANSPORT=http`, then add to `.claude/settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "kafka": {
+      "url": "http://localhost:3000/mcp"
+    }
+  }
+}
+```
+
+### Shared team server
+
+Deploy a single HTTP instance that multiple team members connect to:
+
+```env
+MCP_TRANSPORT=http
+MCP_HOST=0.0.0.0
+MCP_PORT=3000
+MCP_API_KEY=team-shared-secret
+KAFKA_PROVIDER=confluent
+CONFLUENT_BOOTSTRAP_SERVERS=pkc-abc12.eu-west-1.aws.confluent.cloud:9092
+CONFLUENT_API_KEY=your-api-key
+CONFLUENT_API_SECRET=your-api-secret
+```
+
+Team members configure their MCP client with:
+
+```json
+{
+  "mcpServers": {
+    "kafka": {
+      "url": "http://kafka-mcp.internal:3000/mcp",
+      "headers": {
+        "Authorization": "Bearer team-shared-secret"
       }
     }
   }
@@ -251,6 +346,19 @@ KSQL_API_SECRET=               # optional, for Confluent Cloud or basic auth
 | `KSQL_ENDPOINT` | ksqlDB REST API endpoint | `http://localhost:8088` |
 | `KSQL_API_KEY` | API key for authentication | -- |
 | `KSQL_API_SECRET` | API secret for authentication | -- |
+
+### Transport
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `MCP_TRANSPORT` | Transport mode: `stdio`, `http`, `both` | `stdio` |
+| `MCP_PORT` | HTTP server port | `3000` |
+| `MCP_HOST` | HTTP server bind address | `127.0.0.1` |
+| `MCP_PATH` | MCP endpoint path | `/mcp` |
+| `MCP_SESSION_MODE` | HTTP session mode: `stateless`, `stateful` | `stateless` |
+| `MCP_API_KEY` | Bearer token for HTTP authentication | -- |
+| `MCP_ALLOWED_ORIGINS` | Comma-separated allowed origins | -- |
+| `MCP_IDLE_TIMEOUT` | HTTP idle timeout in seconds | `120` |
 
 ### Logging
 
