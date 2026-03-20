@@ -144,7 +144,7 @@ Add to `claude_desktop_config.json`:
   "mcpServers": {
     "kafka": {
       "command": "bun",
-      "args": ["run", "/absolute/path/to/kafka-mcp-server/dist/index.js"],
+      "args": ["/absolute/path/to/kafka-mcp-server/src/index.ts"],
       "env": {
         "KAFKA_PROVIDER": "local",
         "LOCAL_BOOTSTRAP_SERVERS": "localhost:9092"
@@ -177,7 +177,7 @@ Add to `.claude/settings.json`:
   "mcpServers": {
     "kafka": {
       "command": "bun",
-      "args": ["run", "/absolute/path/to/kafka-mcp-server/dist/index.js"],
+      "args": ["/absolute/path/to/kafka-mcp-server/src/index.ts"],
       "env": {
         "KAFKA_PROVIDER": "local",
         "LOCAL_BOOTSTRAP_SERVERS": "localhost:9092"
