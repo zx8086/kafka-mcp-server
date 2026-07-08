@@ -147,12 +147,20 @@ Add to `claude_desktop_config.json`:
       "args": ["/absolute/path/to/kafka-mcp-server/src/index.ts"],
       "env": {
         "KAFKA_PROVIDER": "local",
-        "LOCAL_BOOTSTRAP_SERVERS": "localhost:9092"
+        "LOCAL_BOOTSTRAP_SERVERS": "localhost:9092",
+        "KAFKA_ALLOW_WRITES": "true",
+        "KAFKA_ALLOW_DESTRUCTIVE": "true",
+        "SCHEMA_REGISTRY_ENABLED": "true",
+        "SCHEMA_REGISTRY_URL": "http://localhost:8081",
+        "KSQL_ENABLED": "true",
+        "KSQL_ENDPOINT": "http://localhost:8088"
       }
     }
   }
 }
 ```
+
+Omit `SCHEMA_REGISTRY_*` and `KSQL_*` if you don't have those services running. Omit `KAFKA_ALLOW_WRITES` and `KAFKA_ALLOW_DESTRUCTIVE` for read-only access.
 
 ### Claude Desktop (HTTP)
 
@@ -180,12 +188,20 @@ Add to `.claude/settings.json`:
       "args": ["/absolute/path/to/kafka-mcp-server/src/index.ts"],
       "env": {
         "KAFKA_PROVIDER": "local",
-        "LOCAL_BOOTSTRAP_SERVERS": "localhost:9092"
+        "LOCAL_BOOTSTRAP_SERVERS": "localhost:9092",
+        "KAFKA_ALLOW_WRITES": "true",
+        "KAFKA_ALLOW_DESTRUCTIVE": "true",
+        "SCHEMA_REGISTRY_ENABLED": "true",
+        "SCHEMA_REGISTRY_URL": "http://localhost:8081",
+        "KSQL_ENABLED": "true",
+        "KSQL_ENDPOINT": "http://localhost:8088"
       }
     }
   }
 }
 ```
+
+Omit `SCHEMA_REGISTRY_*` and `KSQL_*` if you don't have those services running. Omit `KAFKA_ALLOW_WRITES` and `KAFKA_ALLOW_DESTRUCTIVE` for read-only access.
 
 ### Claude Code (HTTP)
 
@@ -417,13 +433,27 @@ Use `TELEMETRY_MODE=console` for local debugging or `both` for dual export.
 
 ### DevContainer
 
-The project includes a DevContainer configuration with:
+The project includes a DevContainer with the full Kafka ecosystem:
 
-- Apache Kafka in KRaft mode (single-node, port 9092)
-- Kafka UI dashboard (port 8080)
-- Pre-configured environment: local provider, writes and destructive ops enabled, debug logging
+| Service | Port | Description |
+|---|---|---|
+| Kafka (KRaft) | 9092 | Single-node broker in KRaft mode |
+| Schema Registry | 8081 | Confluent Schema Registry (Avro, JSON Schema, Protobuf) |
+| ksqlDB | 8088 | Streaming SQL engine |
+| Kafka UI | 8080 | Web dashboard with SR and ksqlDB integration |
+| Flink Web UI | 18081 | Apache Flink cluster dashboard |
+| Flink SQL Gateway | 8083 | Flink SQL API endpoint |
 
-Open in VS Code or any DevContainer-compatible editor to get a ready-to-use Kafka environment.
+All MCP features are pre-enabled (Schema Registry, ksqlDB, writes, destructive ops, debug logging). All 30 tools work out of the box. Flink is included for stream processing experimentation (no MCP integration).
+
+Start the stack standalone:
+
+```bash
+docker compose -f .devcontainer/docker-compose.yml up -d
+bun --env-file=.env.devcontainer run src/index.ts
+```
+
+See [docs/local-setup.md](docs/local-setup.md) for the full setup guide.
 
 ### Testing
 

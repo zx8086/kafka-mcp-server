@@ -7,13 +7,19 @@ Get the Kafka MCP Server running against a local Kafka broker in under 5 minutes
 - [Bun](https://bun.sh) v1.3+
 - A running Kafka broker on `localhost:9092` (or use the DevContainer)
 
-## Option A: DevContainer (recommended)
+## Option A: Docker Compose stack (recommended)
 
-The project includes a DevContainer that starts the full Kafka ecosystem automatically.
+The project includes a Docker Compose stack with the full Kafka ecosystem. Start it from the project root:
 
-1. Open the project in VS Code (or any DevContainer-compatible editor)
-2. When prompted, click **Reopen in Container**
-3. All services start automatically:
+```bash
+docker compose -f .devcontainer/docker-compose.yml up -d
+```
+
+Wait for all services to become healthy:
+
+```bash
+docker compose -f .devcontainer/docker-compose.yml ps
+```
 
 | Service | Port | URL |
 |---|---|---|
@@ -24,9 +30,22 @@ The project includes a DevContainer that starts the full Kafka ecosystem automat
 | Flink Web UI | 18081 | `http://localhost:18081` |
 | Flink SQL Gateway | 8083 | `http://localhost:8083` |
 
-The DevContainer pre-configures the environment with all MCP features enabled (Schema Registry, ksqlDB, writes, destructive ops) and debug logging. All 30 MCP tools work out of the box.
+Start the MCP server with the pre-configured env file:
+
+```bash
+bun --env-file=.env.devcontainer run src/index.ts
+```
+
+All MCP features are pre-enabled (Schema Registry, ksqlDB, writes, destructive ops) with debug logging. All 30 MCP tools work out of the box.
 
 Apache Flink (jobmanager, taskmanager, SQL gateway) is included for stream processing experimentation but has no MCP integration -- it is infrastructure only.
+
+To stop everything:
+
+```bash
+docker compose -f .devcontainer/docker-compose.yml down      # keep data
+docker compose -f .devcontainer/docker-compose.yml down -v    # remove volumes
+```
 
 ## Option B: Bring your own Kafka
 
@@ -82,7 +101,7 @@ KAFKA_ALLOW_DESTRUCTIVE=true
 
 ## Adding Schema Registry
 
-If you have a local Schema Registry running (e.g., via Docker Compose):
+Schema Registry is included in the Docker Compose stack (Option A). For a standalone Schema Registry:
 
 ```env
 SCHEMA_REGISTRY_ENABLED=true
@@ -93,7 +112,7 @@ This adds 8 schema tools (list, get, register, compatibility check, config, dele
 
 ## Adding ksqlDB
 
-If you have a local ksqlDB server:
+ksqlDB is included in the Docker Compose stack (Option A). For a standalone ksqlDB server:
 
 ```env
 KSQL_ENABLED=true
@@ -106,17 +125,40 @@ This adds 7 ksqlDB tools (server info, streams, tables, queries, describe, run q
 
 ### Claude Desktop
 
-Add to your `claude_desktop_config.json`:
+Add to your `claude_desktop_config.json`. The minimal config enables only Kafka read tools:
 
 ```json
 {
   "mcpServers": {
     "kafka": {
       "command": "bun",
-      "args": ["run", "/absolute/path/to/kafka-mcp-server/dist/index.js"],
+      "args": ["/absolute/path/to/kafka-mcp-server/src/index.ts"],
       "env": {
         "KAFKA_PROVIDER": "local",
         "LOCAL_BOOTSTRAP_SERVERS": "localhost:9092"
+      }
+    }
+  }
+}
+```
+
+To enable all 30 tools with the Docker Compose stack:
+
+```json
+{
+  "mcpServers": {
+    "kafka": {
+      "command": "bun",
+      "args": ["/absolute/path/to/kafka-mcp-server/src/index.ts"],
+      "env": {
+        "KAFKA_PROVIDER": "local",
+        "LOCAL_BOOTSTRAP_SERVERS": "localhost:9092",
+        "KAFKA_ALLOW_WRITES": "true",
+        "KAFKA_ALLOW_DESTRUCTIVE": "true",
+        "SCHEMA_REGISTRY_ENABLED": "true",
+        "SCHEMA_REGISTRY_URL": "http://localhost:8081",
+        "KSQL_ENABLED": "true",
+        "KSQL_ENDPOINT": "http://localhost:8088"
       }
     }
   }
@@ -125,14 +167,14 @@ Add to your `claude_desktop_config.json`:
 
 ### Claude Code
 
-Add to your `.claude/settings.json`:
+Add to your `.claude/settings.json`. The minimal config enables only Kafka read tools:
 
 ```json
 {
   "mcpServers": {
     "kafka": {
       "command": "bun",
-      "args": ["run", "/absolute/path/to/kafka-mcp-server/dist/index.js"],
+      "args": ["/absolute/path/to/kafka-mcp-server/src/index.ts"],
       "env": {
         "KAFKA_PROVIDER": "local",
         "LOCAL_BOOTSTRAP_SERVERS": "localhost:9092"
@@ -142,7 +184,28 @@ Add to your `.claude/settings.json`:
 }
 ```
 
-Build first with `bun run build`, then point `args` at the built output in `dist/index.js`.
+To enable all 30 tools with the Docker Compose stack:
+
+```json
+{
+  "mcpServers": {
+    "kafka": {
+      "command": "bun",
+      "args": ["/absolute/path/to/kafka-mcp-server/src/index.ts"],
+      "env": {
+        "KAFKA_PROVIDER": "local",
+        "LOCAL_BOOTSTRAP_SERVERS": "localhost:9092",
+        "KAFKA_ALLOW_WRITES": "true",
+        "KAFKA_ALLOW_DESTRUCTIVE": "true",
+        "SCHEMA_REGISTRY_ENABLED": "true",
+        "SCHEMA_REGISTRY_URL": "http://localhost:8081",
+        "KSQL_ENABLED": "true",
+        "KSQL_ENDPOINT": "http://localhost:8088"
+      }
+    }
+  }
+}
+```
 
 ## Troubleshooting
 
